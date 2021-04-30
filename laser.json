@@ -1,0 +1,58 @@
+{
+    "name": "laser",
+    "channels": 10,
+    "notes": "",
+    "mapping": {
+        "mode": {
+            "channel": 1,
+            "conditional": false,
+            "values": {
+                "closed": ["block", 0, 63],
+                "manual": ["block", 64, 127],
+                "auto": ["block", 128, 191],
+                "sound": ["block", 192, 255]
+            }
+        },
+        "submode": {
+            "channel": 2,
+            "conditional": "mode",
+            "conditions": {
+                "closed": {
+                    "values": {
+                        "-": [0, 255]
+                    }
+                },
+                "manual": {
+                    "values": {
+                        "pattern": ["range", 0, 255]
+                    }
+                },
+                "auto": {
+                    "values": {
+                        "mode 1": ["block", 0, 63],
+                        "mode 2": ["block", 64, 127],
+                        "mode 3": ["block", 128, 191],
+                        "mode 4": ["block", 192, 255]
+                    }
+                },
+                "sound": {
+                    "values": {
+                        "mode 1": ["block", 0, 63],
+                        "mode 2": ["block", 64, 127],
+                        "mode 3": ["block", 128, 191],
+                        "mode 4": ["block", 192, 255]
+                    }
+                }
+            }
+            },
+            "angle": {
+                "channel": 3,
+                "conditional": false,
+                "values": {
+                    "rotationAngle": ["range", 0, 127],
+                    "clockwiseRotationSpeed"
+                }
+            }
+        }
+    }
+}
