@@ -1,0 +1,71 @@
+{
+    "name": "trimmer par",
+    "channels": 8,
+    "notes": "",
+    "mapping": {
+        "intensity": {
+            "channel": 1,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "strobe": {
+            "channel": 2,
+            "conditional": false,
+            "values": {
+                "strobe rate": ["range", 0, 255]
+            }
+        },
+        "mode": {
+            "channel": 3,
+            "conditional": false,
+            "values": {
+                "dmx": ["block", 0, 50],
+                "colour pulse": ["block", 51, 100],
+                "gradual colour change": ["block", 101, 150],
+                "slow colour change": ["block", 151, 200],
+                "sound control": ["block", 201, 255]
+            }
+        },
+        "auto speed": {
+            "channel": 4,
+            "conditional": "mode",
+            "conditions": {
+                "dmx": {"values": {"-": ["block", 0, 255]}},
+                "colour pulse": {"values": {"speed": ["range", 0, 255]}},
+                "gradual colour change": {"values": {"speed": ["range", 0, 255]}},
+                "slow colour change": {"values": {"speed": ["range", 0, 255]}},
+                "sound control": {"values": {"speed": ["range", 0, 255]}}
+            }
+        },
+        "red": {
+            "channel": 5,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "green": {
+            "channel": 6,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "blue": {
+            "channel": 7,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "white": {
+            "channel": 8,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        }
+    }
+}

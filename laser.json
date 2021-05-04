@@ -19,7 +19,7 @@
             "conditions": {
                 "closed": {
                     "values": {
-                        "-": [0, 255]
+                        "-": ["block", 0, 255]
                     }
                 },
                 "manual": {
@@ -44,14 +44,13 @@
                     }
                 }
             }
-            },
-            "angle": {
-                "channel": 3,
-                "conditional": false,
-                "values": {
-                    "rotationAngle": ["range", 0, 127],
-                    "clockwiseRotationSpeed"
-                }
+        },
+        "angle": {
+            "channel": 3,
+            "conditional": false,
+            "values": {
+                "rotationAngle": ["range", 0, 127],
+                "clockwiseRotationSpeed": []
             }
         }
     }
