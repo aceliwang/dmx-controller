@@ -481,7 +481,6 @@ if __name__ == '_main_':
 
 @eel.expose
 def palette():
-    global p
     return p
 
 eel.init('app')
