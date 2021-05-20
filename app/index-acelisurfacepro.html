@@ -98,17 +98,16 @@
                     'timing': 'manual',
                     'commands': 'pars on',
                     'dmx': {
-                        1: [255, 0, 'linear'],
-
-                    }
-                    'dmx': [[1, 255, 0], [2, 255, 0], [2, 0, 2, 'delay']],
+                        101: [255, 0],
+                    },
+                    // 'dmx': [[101, 255, 0], [102, 255, 0], [102, 0, 2, 'delay']],
                     'state': [None, None, None]
                 },
                 {
                     'name': 'beat',
                     'desc': 'pars flash',
                     'timing': 'follow',
-                    'dmx': [[1, 0, 0]],
+                    'dmx': [[101, 0, 0]],
                     'state': [None, None]
                 }
             ]
@@ -132,7 +131,7 @@
                 
             }
             timeline.appendChild(cueHeaderGroup)
-            for (cue of lists[list]) {
+            for (cue of lists[list]) { // going through the cue list
                 console.log(cue);
                 // cue = cue object
                 let name = cue.name
@@ -148,18 +147,22 @@
                 // TODO: resizable divs
                 let cueGroup = document.createElement('div')
                 cueGroup.className = 'cueGroup'
+                lightsInCue = cue.dmx.keys // TODO: properties
                 for (light in patching) {
-                    
+                    console.log(light, 'light');
                     let cueItem = document.createElement('div')
                     cueItem.className = 'cueItem'
+                    if (light in lightsInCue) {
+                        // how to do a javascript lookup
+                        // backgroundColour = default
+                        cueItem.style.backgroundColor = 'white'
+                    }
                     cueGroup.appendChild(cueItem)
                 }
                 console.log(cueGroup)
                 timeline.appendChild(cueGroup)
                 console.log('hi', cue.dmx);
-                for (command of cue.dmx) {
-
-                }
+                
 
             }
         }

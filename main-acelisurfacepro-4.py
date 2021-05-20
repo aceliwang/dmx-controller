@@ -5,7 +5,7 @@ import eel
 import json
 from DMXClient import DMXClient
 # import snoop
-import time
+import re
 
 # other https://www.dmxis.com/
 
@@ -39,9 +39,8 @@ cue_lists = {
             'name': 'beat',
             'desc': 'pars flash',
             'timing': 'manual',  # or timecode
-            'commands': {
-                'pars on': [[1, 255, 0, 'linear']]
-            },
+            'commands': 'pars on',
+            'dmx': [[1, 255, 0], [2, 255, 0], [2, 0, 2, 'delay']], # TODO: delay function
             'state': [None, None, None] # put in cumulative values of beforehand
         },
         {
@@ -58,15 +57,6 @@ dmx_to_human = {
     219: [101, 'ON'],
     225: [101, 'R'],
 }
-
-# VARIABLES
-
-DEFAULT_ON_INTENSITY = 100
-DEFAULT_OFF_INTENSITY = 0
-
-# SHOW STATE
-
-
 
 
 def playCue(cue_list_name, cue_number):
@@ -153,32 +143,34 @@ beam = PaletteConstructor('beam')
 custom = PaletteConstructor('custom')
 
 
+def recordPalette(type, value):
+    # TODO
+    return
+
 import math
-def setIntensity(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
-    # VALUE OPTIONS
-    # STR: group name or value
-    # INT: value
-    if isinstance(value, str):
-        if (intensity_palette := p.get('intensity')) and value not in intensity_palette.keys():
-            print(f'[ERROR]: Invalid intensity chosen')
-            return
-        elif value.isnumeric():
-            value = int(value)
-    elif value < 0 or value > 100:
+def setIntensity(selection, value, fade=0, seeBlindDMX=False, push=False):
+    if isinstance(value, str) and value not in p.get('intensity').keys():
+        print(f'[ERROR]: Invalid intensity chosen')
+        return
+    if value < 0 or value > 100:
         print(f'[ERROR]: Intensity {value} out of bounds')
         return
-    translate_value = lambda value : math.ceil((value / 100) * 255)
+    def translate_value(value):
+        return math.ceil((value / 100)  * 255)
+    selection = select(selection)
     value = translate_value(value)
-    fade_arguments = []
-    for fixture in select(selection):
+    programDMX = []
+    for fixture in selection:
         iChannel = findChannel(fixture, 'intensity')
-        fade_arguments.extend((iChannel, value, fade, curve))
-    if verbose: print(f'[CHECK]: {fade_arguments}')
-    if cuelist_mode: return fade_arguments
-    else: fade(*fade_arguments)
-    return fade_arguments
+        programDMX.extend([iChannel, value])
+    if seeBlindDMX:
+        print(f'[CHECK]: {programDMX}')
+    blindDMX = programDMX
+    if push:
+        dClient.write(blindDMX)
+    return programDMX
 
-def setColour(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
+def setColour(selection, value, fade=0, seeBlindDMX=True, push=False):
     if isinstance(value, str) and value not in p['colours'].keys():
         print(f'[ERROR]: Colour "{value}" does not exist.')
         return
@@ -225,16 +217,6 @@ def setColour(selection, value, fade=0, curve='linear', verbose=False, cuelist_m
 # command > dmxValues ie. program DMX > cueList
 # command > dmxValues
 
-def setPosition(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
-    # VALUE OPTIONS
-    # STR
-    # TUPLE
-    if isinstance(value, str):
-        if (position_palette := p.get('positions')):
-            return
-        elif position_palette
-    return
-
 
 def findChannel(fixture, parameter):
     # fixture: fixture number according to patching
@@ -249,7 +231,8 @@ def findChannel(fixture, parameter):
 
 # TODO: update palettes if change fixture number
 
-def select(*selection):
+def select(*args):
+    selection = args
     groupNames = p['groups'].keys()
     if len(selection) == 0: return []
     if isinstance(selection[0], list): selection = selection[0]
@@ -258,10 +241,13 @@ def select(*selection):
             if '>' in arg:
                 limits = arg.split('>')
                 return [number for number in range(int(limits[0]), int(limits[1])+1)]
-            elif arg in groupNames: return p['groups'][arg]
-            else: return [int(arg)]
+            elif arg in groupNames:
+                return p['groups'][arg]
+            else:
+                return [int(arg)]
         elif isinstance(arg, int):
             return [arg]
+    print([fixture for i in selection for fixture in convert_or_expand(i)])
     return [fixture for i in selection for fixture in convert_or_expand(i)]
     # TODO: select backwards ranges, every second, etc.
 
@@ -484,10 +470,16 @@ previousMousePosition = mouse.Controller().position
 
 # PLAYBACK
 
-ACTIVE_CUE_LISTS = {
+activeCueLists = {
     'main': 0
 }
 
+
+
+# MAIN
+
+if __name__ == '_main_':
+    pass
 
 
 # PARSER
@@ -522,17 +514,18 @@ def clean_line(line):
              1] = ''.join(args[arg1Index:arg2Index + 1])
         args.pop(originalOperatorIndex)  # pop operator
         args.pop(originalOperatorIndex)  # pop arg 2
-    print(args)
     return args
 
 class cli(cmd.Cmd):
     intro = 'Command-line interface for'
     pass
 
+defaultOnIntensity = 100
+defaultOffIntensity = 0
+
 aliases = {
-    'on': [setIntensity, DEFAULT_ON_INTENSITY],
-    'off': [setIntensity, DEFAULT_OFF_INTENSITY],
-    'clear': [select, []]
+    'on': setIntensity,
+    'off': setIntensity
 }
 
 @eel.expose
@@ -541,8 +534,8 @@ def read_line(line, cueList=False, groupNames=["macs", "pars"]):
     commandsDict = {
         # 'select': {'function': 'select'},
         # 'record': None,
-        'seti': setIntensity,
-        'si': setIntensity,
+        # 'seti': 'setIntensity',
+        # 'si': 'setIntensity',
         'sc': setColour,
         # 'sp': None,
         'patch': 'patch',
@@ -563,70 +556,26 @@ def read_line(line, cueList=False, groupNames=["macs", "pars"]):
             temp_commands = []
         temp_commands.append(arg)
     command_list.append(temp_commands)
-    print(f'command list: {command_list}')
-    
     ###
     ### perform commands
-    cue = {
-        'commands': {},
-        'fadeTime': 0,
-        'timing': 'manual',
-    }
+    cue = {}
     selection = []
-    temp_commands = []
     for command in command_list:
-        if command[0][0] == '@': cue['timing'] = int(command[0][1:]) # if timing
+        if command[0][0] == '@': cue['timing'] = int(command[0][1:])
         # needs to figure out how to do a selection
-        elif (start := command[0]) == '#': cue['name'] = ' '.join(command[1:]) # if cue name
-        elif start == '/': cue['description'] = ' '.join(command[1:]) # if cue description
-        elif start in groupNames: selection.append(start) # if group selection
-        elif start.isnumeric(): selection.append(start) # if fixture selection
-        elif start == 'in': cue['fadeTime'] = int(command[1]) # if fade time
-        elif start in aliases.keys():
-            do = aliases[start]
-            dmx = do[0](select(selection), do[1:])
-            temp_commands.append(command)
-        else: # if command
-            temp_commands.append(command)
-    print(cue)
-    for command in temp_commands:
-        cue['commands'][' '.join(selection + command)] = commandsDict[command[0]](
-            selection=select(selection),
-            value=command[1],
-            fade=cue['fadeTime'],
-            curve='linear',
-            cuelist_mode=True
-        )
-    # return a cue: {timing, fadeTime, name} and temp commands [macs si 25] [macs sp home]
+        elif command[0] == '#': cue['name'] = ' '.join(command[1:])
+        elif command[0] == '/': cue['description'] = ' '.join(command[1:])
+        elif command[0] in groupNames: selection.append(command[0])
+        elif command[0] == 'in': cue['fadeTime'] = int(command[1])
+        elif command[0].isnumeric(): selection.append(command[0])
+        else:
+            print(select(selection))
+            commandsDict[command[0]](select(selection), seeBlindDMX=True, push=False, *command[1:])
     def startCueList():
         return
     print(command_list)
-    cue_lists[selected_cue_list].append(cue)
-    del cue['fadeTime']
-    print(cue)
-    calculate_state(selected_cue_list)
-    return cue
+    return cue, command_list
 
-def calculate_state(cue_list):
-    state = [None] * 256
-    for cue in cue_lists[cue_list]:
-        for command in cue['commands'].values():
-            for channel, value, fade, curve in command:
-                state[channel] = value
-        cue['state'] = state
-    return
-
-def save():
-    show_file = {
-        'palettes': p,
-        'fixture types': fixture_types,
-        'patching': patching,
-        'cue lists': cue_lists,
-    }
-    return show_file
-
-
-# TODO: delay needs to be fixed
 
 # print(read_line("@100 pars sc red # cue name / when they start dancing"))
 # read_line("101 102 sc blue")
@@ -672,6 +621,15 @@ def read_script(file):
 
             groups()
 
+def recordCue(cue_list, cue, cue_number=False):
+    cue_list = cue_lists[cue_list]
+    if not isinstance(cue_number, int): cue_number = len(cue_list)
+    cue = {
+        'name': 1
+    }
+    cue_lists[cue_list].insert(cue_number, cue)
+
+
 # class group: # groups
 #     def __init__(self, name, fixtures):
 #         self.name = name
@@ -706,47 +664,45 @@ def startGUI():
 
 # startGUI()
 
-currentDMX = [0] * 256
-def fade(instructions): # channel, end, length
-    # instruction = array of tuples.
-    # NOTE: LTP. instructions at the end take priority
-    # each tuple = (channel, end, duration, curve)
-    # eg. (1, 255, 2, 'linear')
-    # STEP 1: calculate each channel start
-    # ie. tuple => (channel, start, end, duration) eg. (1, 0, 255, 2, 'linear')
-    instructions = [(1, 255, 2, 'linear'), (1, 0, 2, 'delay')]
-    instruction_q = [(channel, currentDMX[channel], end, duration, curve) for (channel, end, duration, curve) in instructions]
-    # STEP 2: run loop. calculate new values for each channel according to duration and write
+# fades time.perf_counter()
+dClient = DMXClient('PODU')
+dClient.connect()
+import time
+import math
+
+def fade(curve='linear', *arg): # channel, end, length
+    fadingChannels = arg 
+    def delay(delta, start, end, duration):
+        if duration == 
+        return None
     curves = {
-        'linear': lambda delta, start, end, duration : int(start + (end - start) * delta / duration) if duration > 0 else int(end),
-        'delay': lambda delta, start, end, duration : int(end) if delta >= duration else None,
+        'linear': lambda delta, start, end, duration : start + (end - start) * delta / duration,
+        'delay': lambda hi : hi
     }
-    # STEP 2A: calculate new values according to multiple instructions and add these instructions together
+    print(args) # [(channel, start, end, length)]
+    fadingArgs = [(channel, currentDMX[channel], end, length) for arg in args]
     timer = time.perf_counter()
-    # directions = [int((end - start) / abs(end - start)) for (channel, end, length), start in zip(fadingChannels, currentValues)]
-    # previousValues = [i for i in currentValues]
-    end_values = {channel: (start, end) for (channel, start, end, duration, curve) in instruction_q} # looks at LTP and order of array
-    max_duration = max([duration for (a, b, duration, c) in instructions])
-    # end_values = {1: 0}
-    # break criteria: if deltaTime >= duration && previous_value <= or >= end_value
+    currentValues = [currentDMX[channel] for channel in fadingChannels]
+    directions = [int((end - start) / abs(end - start)) for (channel, end, length), start in zip(fadingChannels, currentValues)]
+    previousValues = [i for i in currentValues]
+    # process is:
+    # each set is provided in the args
+    # each set involves end value + duration to get there + curve to get there
+    # each set identifies start value first for each channel
+    # 
     while True:
-        # TODO: when to break out? how to compare to end value
-        # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) < 0, continue
-        # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) >= 0, achieved > remove from comparison. Once all removed from comparison, break?
+        if previousValue >= 255: return
         deltaTime = time.perf_counter() - timer
-        # calculate values according to curves
-        new_values = {channel: value for (channel, start, end, duration, curve) in instruction_q if ((value := curves[curve](deltaTime, start, end, duration)) is not None)}
-        # {1: 255} then {1: 0}
-        dClient.write(new_values)
-        for channel in new_values.keys():
-            currentDMX[channel] = new_values[channel]
-        previous_values = new_values
-        end_checker = {channel: previous_value for (channel, previous_value) in previous_values.items() if (
-            (end_values[channel][1] - end_values[channel][0]) * (previous_value - end_values[channel][1]) < 0
-            )}
-        if len(end_checker) == 0 and (deltaTime > max_duration): break
+        newValue = [curves['linear'](deltaTime, 255, 0, 2) for channel in fadingChannels]
+        print(newValue, deltaTime)
+        dClient._write('DMX')
+        dClient.write('DMX 219 ' + str(int(math.ceil(newValue))))
+        previousValue = newValue
+fadingChannels = [(1, 255, 2)]
+currentValues = [0]
+b = list(zip(fadingChannels, currentValues))
+[print(a, d, e, c) for (a, d, e), c in b]
+fade()
 
 
 
-
-# colour fade resource: https://www.sparkfun.com/news/2844

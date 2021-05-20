@@ -1,0 +1,47 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Controller</title>
+    <link rel="stylesheet" href="skeleton.css">
+    <script type="text/javascript" src="/eel.js"></script>
+
+</head>
+
+<body>
+    <div id="panel" class="container">
+        <div id="log">
+            Log
+        </div>
+        <div id="palettes"></div>
+        <div class="row">
+            <div class="twelve columns">
+                <input class="u-full-width" type="text" onsubmit="runCommand()">
+            </div>
+            <input type="submit" value="Enter">
+
+        </div>
+    </div>
+
+
+</body>
+<script type="text/javascript">
+    let paletteDiv = document.getElementById('palettes')
+    
+    async function refresh_palette() {
+        let palette = await eel.palette()()
+        console.log(palette, typeof palette)
+        for (paletteType in palette) {
+            let heading = document.createElement('pre')
+            heading.innerHTML = JSON.stringify(palette, undefined, 6)
+            paletteDiv.appendChild(heading)
+            for (paletteName in palette[paletteType]) {
+            }
+        }
+
+    }
+    refresh_palette()
+</script>
+
+</html>

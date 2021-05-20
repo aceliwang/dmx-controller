@@ -1,0 +1,38 @@
+.paletteBlock {
+    height: 100px;
+    width: 100px;
+    background-color: blue;
+    text-align: center;
+}
+.cueGroup {
+    /* height: 20px; */
+    /* width: 20px; */
+    /* background-color: black; */
+    border: 0px solid red;
+    display: flex;
+    flex-flow: column wrap;
+    margin: 5px 0px;
+}
+.cueItem {
+    height: 20px;
+    width: 20px;
+    border: 2px solid black;
+    margin: 5px 0px;
+}
+#timeline {
+    display: flex;
+}
+.cueRow {
+    /* border: 2px solid black; */
+}
+.cueHeader {
+    border: 2px solid blue;
+    width: 5rem;
+    background-color: red;
+    display: flex;
+    flex-flow: column wrap;
+    margin: 5px 0px;
+    display: flex;
+    /* height: 200px; */
+    justify-content: center;
+}

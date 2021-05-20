@@ -9,8 +9,12 @@
         }
     },
     "scene1": {
+        "default": [0, 255, 0],
+        "fixture types": {
+            "trimmer par": [244, 0, 0]
+        },
         "fixtures": {
-            "101": "red"
+            "101": [255, 0, 0]
         }
     }
 }
