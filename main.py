@@ -7,6 +7,7 @@ from DMXClient import DMXClient
 # import snoop
 import time
 
+#test
 # other https://www.dmxis.com/
 
 dClient = DMXClient('PODU')
