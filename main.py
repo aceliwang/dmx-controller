@@ -8,66 +8,109 @@ import snoop
 import time
 import threading
 import argparse
+import math
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--gui', action='store_true')
-parser.add_argument('-v', '--verbose', action='store_true')
-parser.add_argument('-c', '--connect', action='store_true')
-args = parser.parse_args()
-print(args)
 
-#test
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-g', '--gui', action='store_true')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-c', '--connect', action='store_true')
+    args = parser.parse_args()
+
 # other https://www.dmxis.com/
 
 CLIENT_CONNECTION_STATUS = False
 BLIND_STATUS = False
 VERBOSE_MODE = args.verbose
-dClient = DMXClient('PODU')
 # DMX_BUFFER = [{1: (val := (int((k) * 255 / 88))), 2: val} for k in range(88)] ## this option drops less frames
-DMX_BUFFER = {} ## this options drops some frames
+# using a dictionary drops some frames
 
-import math
-# DMX_BUFFER = [
-#     {
-#         3 + j: max(0, min(255, 128 + int(255 * math.sin(math.pi * (i+ 18 * j) / 44)))) for j in range(12)
-# } for i in range(200)]
-dmxSender = None
+class DMXSender():
+    '''
+    Attributes:
+        buffer (dict): buffer to be written to device (ie. effects are included)
+        output (dict): copy of buffer showing DMX state
+        DMXstate (dict): dictionary of current DMX without effects written in
+    '''
+    def __init__(self):
+        
+        self.buffer = {}
+        self.output = {}
+        self.DMXstate = {}
+        self.CONNECTION_STATUS = False
+        self.client = DMXClient('PODU')
+        return
 
-smallCounter = 0
-def connect():
-    global CLIENT_CONNECTION_STATUS
-    dClient.connect()
-    CLIENT_CONNECTION_STATUS = True
-    dClient.write('DMX 1 255')
-    def dmxSending(Hz = 44):
-        startTime = time.time()
+    def update_buffer(self, new_values):
+        '''
+        Args:
+            new_values (dict): DMX values to be put into the buffer
+        '''
+        self.buffer.update(new_values)
+        self.output.update(new_values)
+        return
+
+    def send_dmx(self, Hz = 44):
+        start = time.time()
         counter = 0
-        # for i in range(500):
-        global DMX_BUFFER
-        period = 1.0 / Hz
-        global smallCounter
         while True:
-            frameTime = startTime + counter / Hz
-            while time.time() < frameTime:
+            nextFrame = start + counter / Hz
+            while time.time() < nextFrame:
                 pass
-            # print(counter, DMX_BUFFER, time.time())
             if bool(DMX_BUFFER):
                 # dClient.write(DMX_BUFFER.pop(0))
-                dClient.write(DMX_BUFFER)
-                DMX_BUFFER = {}
-                smallCounter += 1
-                print(counter, smallCounter, time.time() - startTime)
+                self.client.write(self.buffer)
+                self.buffer = {}
+                print(counter, time.time() - start)
             counter += 1
-    global dmxSender
-    dmxSender = threading.Thread(target=dmxSending)
-    dmxSender.start()
-    # TODO multithread
-    return
-if args.connect: connect()
+
+    def connect(self):
+        '''
+        Connect to client device. Updates connection_status.
+        '''
+        self.client.connect()
+        self.CONNECTION_STATUS = True
+        self.sender = threading.Thread(target=self.send_dmx)
+        self.sender.start()
+        return
+
+### PROGRAMMING
+
+class Palettes():
+    def __init__(self):
+
+        return
+
+class Programmer():
+    def __init__(self):
+        self.selection = []
+        return
+
+class Cuelist():
+    def __init__(self):
+        self.cues = []
+        return
+
+    @property
+    def cues(self):
+        return self.cues
+    
+    def add_cue(self, parameters):
+        self.cues.append()
+
+class Cue():
+    def __init__(self):
+
+
+
+DMX = DMXSender()
+palettes = Palettes()
+if args.connect: DMX.connect()
 
 def bye():
     try:
-        dmxSender.join()
+        DMX.sender.join()
         gui.join()
     finally:
         exit()
@@ -1162,12 +1205,13 @@ def fade(*instructions, effects=None): # channel, end, length, curve
         # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) >= 0, achieved > remove from comparison. Once all removed from comparison, break?
         deltaTime = time.perf_counter() - timer
         # calculate values according to curves
-        new_values = {channel: value for (channel, start, end, duration, curve) in instruction_q if ((value := curves[curve](deltaTime, start, end, duration)) is not None)}
+        new_values = {channel: value
+         for (channel, start, end, duration, curve) in instruction_q if ((value := curves[curve](deltaTime, start, end, duration)) is not None)}
         # {1: 255} then {1: 0}
-        
-        if CLIENT_CONNECTION_STATUS:
-            # TO DELETE: dClient.write(new_values)
-            DMX_BUFFER.update(new_values)
+        effected_values
+        if channel in active_effects:
+            effected_values[channel]
+        DMX_BUFFER.update(new_values)
         for channel in new_values.keys():
             currentDMX[channel] = new_values[channel]
         previous_values = new_values
