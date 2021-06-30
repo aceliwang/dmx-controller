@@ -1,6 +1,11 @@
+#palettes {
+    display: flex;
+    flex-wrap: wrap;
+}
+
 .paletteBlock {
-    height: 100px;
-    width: 100px;
+    height: 50px;
+    width: 50px;
     background-color: blue;
     text-align: center;
 }
@@ -8,31 +13,155 @@
     /* height: 20px; */
     /* width: 20px; */
     /* background-color: black; */
-    border: 0px solid red;
+    border: 0px solid transparent;
     display: flex;
     flex-flow: column wrap;
     margin: 5px 0px;
+    box-sizing: border-box;
+}
+.cueGroup:hover .cueBackground {
+    background-color: blueviolet;
+}
+.cueGroup:hover .cueBackground .cueItem, .cueGroup:hover{
+    opacity: 0.5;
+    /* border-width: 5px; */
+    /* padding-top: calc(100% - 10px); */
+    border-top-color: blueviolet;
+}
+.cueGroup::before {
+    width: 5px;
+}
+.cueGroup:last-child .cueItem{
+    padding-top: calc(100% - 7.5px);
+    border-width: 5px 5px 5px 2.5px;
 }
 .cueItem {
-    height: 20px;
-    width: 20px;
-    border: 2px solid black;
-    margin: 5px 0px;
+    /* height: 20px; */
+    /* min-height: 3rem; */
+    width: 3rem;
+    padding-top: calc(100% - 5px);
+    border: solid transparent;
+    border-width: 5px 0px 5px 5px;
+    margin: 0rem 0rem;
+    background-color: black;
 }
+.cueBackground {
+    margin: 0.5rem 0rem;
+    /* background-image: repeating-linear-gradient(to right black, white 10%); */
+    /* background: repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 
+              50% / 10px 10px; */
+    background-color: black;
+}
+.selectedCue {
+    background-color: green;
+}
+
 #timeline {
     display: flex;
+    background-color: wheat;
+    overflow-x: auto;
 }
 .cueRow {
     /* border: 2px solid black; */
 }
 .cueHeader {
     border: 2px solid blue;
-    width: 5rem;
-    background-color: red;
+    min-width: 5rem;
+    min-height: 3rem;
+    /* background-color: red; */
     display: flex;
     flex-flow: column wrap;
-    margin: 5px 0px;
+    margin: 0.5rem 0rem;
     display: flex;
-    /* height: 200px; */
     justify-content: center;
+    border: solid black;
+    border-width: 5px 0px 5px 5px;
+    padding-left: 0.5rem;
+    color: black;
+}
+#position-programmer {
+    width: 50%;
+    /* height: 50%; */
+    background-color: red;
+    background: repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 
+              50% / 50px 50px;
+}
+
+#parameters {
+    display: flex;
+}
+
+.parameterProgrammer {
+    width: 10rem;
+    background-color: pink;
+    text-align: center;
+    border: 2px solid black;
+}
+
+.parameterLabel {
+    font-weight: bold;
+}
+
+.parameterValue {
+    margin: 2px;
+    display: block;
+}
+
+input.parameterValue {
+    width: 8rem;
+    margin: 0 auto;
+    padding: 0rem;
+    text-align: center;
+    background-color: transparent;
+    border: solid 0px transparent;
+    height: 3rem;
+}
+
+/* PATCHING */
+
+[id^=universe] {
+    display: flex;
+    flex-flow: wrap;
+}
+
+.patchingAddressBlock {
+    width: 3rem;
+    /* height: 3rem; */
+    background-color: whitesmoke;
+    /* border: black solid 2px; */
+    text-align: center;
+    justify-content: space-around;
+}
+
+.channelUsedStart {
+    background-color: pink;
+}
+
+.channelUsed {
+    background-color: rosybrown;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100 vh;
+    align-items: center;
+    margin: 0;
+}
+
+.container {
+    overflow-y: scroll;
+    height: 80vh;
+    /* flex: 1 1 auto; */
+}
+
+#terminal {
+    /* flex: 0 0 50px; */
+    margin-top: auto;
+    height: 20vh;
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+    flex-shrink: 0;
 }

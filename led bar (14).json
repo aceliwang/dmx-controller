@@ -1,6 +1,6 @@
 {
-    "name": "trimmer par",
-    "channels": 8,
+    "name": "led bar (14)",
+    "channels": 75,
     "notes": "",
     "colour_mapping": "rgbw",
     "mapping": {
@@ -11,7 +11,14 @@
                 "intensity": ["range", 0, 255]
             }
         },
-        "strobe": {
+        "sun 1 intensity": {
+            "channel": 2,
+            "conditional": false,
+            "values": {
+                "strobe rate": ["range", 0, 255]
+            }
+        },
+        "sun 2 intensity": {
             "channel": 2,
             "conditional": false,
             "values": {

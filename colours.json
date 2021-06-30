@@ -1,20 +1,1271 @@
 {
-    "red": {
-        "default": [255, 0, 0],
-        "fixture types": {
-            "trimmer par": [244, 0, 0]
-        },
-        "fixtures": {
-            "101": [255, 0, 0]
-        }
+    "indianred": {
+        "default": [
+            205,
+            92,
+            92
+        ],
+        "fixture types": {},
+        "fixtures": {}
     },
-    "scene1": {
-        "default": [0, 255, 0],
-        "fixture types": {
-            "trimmer par": [244, 0, 0]
-        },
-        "fixtures": {
-            "101": [255, 0, 0]
-        }
+    "lightcoral": {
+        "default": [
+            240,
+            128,
+            128
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "salmon": {
+        "default": [
+            250,
+            128,
+            114
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darksalmon": {
+        "default": [
+            233,
+            150,
+            122
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightsalmon": {
+        "default": [
+            255,
+            160,
+            122
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "crimson": {
+        "default": [
+            220,
+            20,
+            60
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "red": {
+        "default": [
+            255,
+            0,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "firebrick": {
+        "default": [
+            178,
+            34,
+            34
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkred": {
+        "default": [
+            139,
+            0,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "pink": {
+        "default": [
+            255,
+            192,
+            203
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightpink": {
+        "default": [
+            255,
+            182,
+            193
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "hotpink": {
+        "default": [
+            255,
+            105,
+            180
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "deeppink": {
+        "default": [
+            255,
+            20,
+            147
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumvioletred": {
+        "default": [
+            199,
+            21,
+            133
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "palevioletred": {
+        "default": [
+            219,
+            112,
+            147
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "coral": {
+        "default": [
+            255,
+            127,
+            80
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "tomato": {
+        "default": [
+            255,
+            99,
+            71
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "orangered": {
+        "default": [
+            255,
+            69,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkorange": {
+        "default": [
+            255,
+            140,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "orange": {
+        "default": [
+            255,
+            165,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "gold": {
+        "default": [
+            255,
+            215,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "yellow": {
+        "default": [
+            255,
+            255,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightyellow": {
+        "default": [
+            255,
+            255,
+            224
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lemonchiffon": {
+        "default": [
+            255,
+            250,
+            205
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightgoldenrodyellow": {
+        "default": [
+            250,
+            250,
+            210
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "papayawhip": {
+        "default": [
+            255,
+            239,
+            213
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "moccasin": {
+        "default": [
+            255,
+            228,
+            181
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "peachpuff": {
+        "default": [
+            255,
+            218,
+            185
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "palegoldenrod": {
+        "default": [
+            238,
+            232,
+            170
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "khaki": {
+        "default": [
+            240,
+            230,
+            140
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkkhaki": {
+        "default": [
+            189,
+            183,
+            107
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lavender": {
+        "default": [
+            230,
+            230,
+            250
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "thistle": {
+        "default": [
+            216,
+            191,
+            216
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "plum": {
+        "default": [
+            221,
+            160,
+            221
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "violet": {
+        "default": [
+            238,
+            130,
+            238
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "orchid": {
+        "default": [
+            218,
+            112,
+            214
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "fuchsia": {
+        "default": [
+            255,
+            0,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "magenta": {
+        "default": [
+            255,
+            0,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumorchid": {
+        "default": [
+            186,
+            85,
+            211
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumpurple": {
+        "default": [
+            147,
+            112,
+            219
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "blueviolet": {
+        "default": [
+            138,
+            43,
+            226
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkviolet": {
+        "default": [
+            148,
+            0,
+            211
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkorchid": {
+        "default": [
+            153,
+            50,
+            204
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkmagenta": {
+        "default": [
+            139,
+            0,
+            139
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "purple": {
+        "default": [
+            128,
+            0,
+            128
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "rebeccapurple": {
+        "default": [
+            102,
+            51,
+            153
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "indigo": {
+        "default": [
+            75,
+            0,
+            130
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumslateblue": {
+        "default": [
+            123,
+            104,
+            238
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "slateblue": {
+        "default": [
+            106,
+            90,
+            205
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkslateblue": {
+        "default": [
+            72,
+            61,
+            139
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "greenyellow": {
+        "default": [
+            173,
+            255,
+            47
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "chartreuse": {
+        "default": [
+            127,
+            255,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lawngreen": {
+        "default": [
+            124,
+            252,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lime": {
+        "default": [
+            0,
+            255,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "limegreen": {
+        "default": [
+            50,
+            205,
+            50
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "palegreen": {
+        "default": [
+            152,
+            251,
+            152
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightgreen": {
+        "default": [
+            144,
+            238,
+            144
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumspringgreen": {
+        "default": [
+            0,
+            250,
+            154
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "springgreen": {
+        "default": [
+            0,
+            255,
+            127
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumseagreen": {
+        "default": [
+            60,
+            179,
+            113
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "seagreen": {
+        "default": [
+            46,
+            139,
+            87
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "forestgreen": {
+        "default": [
+            34,
+            139,
+            34
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "green": {
+        "default": [
+            0,
+            128,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkgreen": {
+        "default": [
+            0,
+            100,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "yellowgreen": {
+        "default": [
+            154,
+            205,
+            50
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "olivedrab": {
+        "default": [
+            107,
+            142,
+            35
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "olive": {
+        "default": [
+            128,
+            128,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkolivegreen": {
+        "default": [
+            85,
+            107,
+            47
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumaquamarine": {
+        "default": [
+            102,
+            205,
+            170
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkseagreen": {
+        "default": [
+            143,
+            188,
+            143
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightseagreen": {
+        "default": [
+            32,
+            178,
+            170
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkcyan": {
+        "default": [
+            0,
+            139,
+            139
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "teal": {
+        "default": [
+            0,
+            128,
+            128
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "aqua": {
+        "default": [
+            0,
+            255,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "cyan": {
+        "default": [
+            0,
+            255,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightcyan": {
+        "default": [
+            224,
+            255,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "paleturquoise": {
+        "default": [
+            175,
+            238,
+            238
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "aquamarine": {
+        "default": [
+            127,
+            255,
+            212
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "turquoise": {
+        "default": [
+            64,
+            224,
+            208
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumturquoise": {
+        "default": [
+            72,
+            209,
+            204
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkturquoise": {
+        "default": [
+            0,
+            206,
+            209
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "cadetblue": {
+        "default": [
+            95,
+            158,
+            160
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "steelblue": {
+        "default": [
+            70,
+            130,
+            180
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightsteelblue": {
+        "default": [
+            176,
+            196,
+            222
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "powderblue": {
+        "default": [
+            176,
+            224,
+            230
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightblue": {
+        "default": [
+            173,
+            216,
+            230
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "skyblue": {
+        "default": [
+            135,
+            206,
+            235
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightskyblue": {
+        "default": [
+            135,
+            206,
+            250
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "deepskyblue": {
+        "default": [
+            0,
+            191,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "dodgerblue": {
+        "default": [
+            30,
+            144,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "cornflowerblue": {
+        "default": [
+            100,
+            149,
+            237
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "royalblue": {
+        "default": [
+            65,
+            105,
+            225
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "blue": {
+        "default": [
+            0,
+            0,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mediumblue": {
+        "default": [
+            0,
+            0,
+            205
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkblue": {
+        "default": [
+            0,
+            0,
+            139
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "navy": {
+        "default": [
+            0,
+            0,
+            128
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "midnightblue": {
+        "default": [
+            25,
+            25,
+            112
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "cornsilk": {
+        "default": [
+            255,
+            248,
+            220
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "blanchedalmond": {
+        "default": [
+            255,
+            235,
+            205
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "bisque": {
+        "default": [
+            255,
+            228,
+            196
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "navajowhite": {
+        "default": [
+            255,
+            222,
+            173
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "wheat": {
+        "default": [
+            245,
+            222,
+            179
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "burlywood": {
+        "default": [
+            222,
+            184,
+            135
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "tan": {
+        "default": [
+            210,
+            180,
+            140
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "rosybrown": {
+        "default": [
+            188,
+            143,
+            143
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "sandybrown": {
+        "default": [
+            244,
+            164,
+            96
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "goldenrod": {
+        "default": [
+            218,
+            165,
+            32
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkgoldenrod": {
+        "default": [
+            184,
+            134,
+            11
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "peru": {
+        "default": [
+            205,
+            133,
+            63
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "chocolate": {
+        "default": [
+            210,
+            105,
+            30
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "saddlebrown": {
+        "default": [
+            139,
+            69,
+            19
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "sienna": {
+        "default": [
+            160,
+            82,
+            45
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "brown": {
+        "default": [
+            165,
+            42,
+            42
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "maroon": {
+        "default": [
+            128,
+            0,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "white": {
+        "default": [
+            255,
+            255,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "snow": {
+        "default": [
+            255,
+            250,
+            250
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "honeydew": {
+        "default": [
+            240,
+            255,
+            240
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mintcream": {
+        "default": [
+            245,
+            255,
+            250
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "azure": {
+        "default": [
+            240,
+            255,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "aliceblue": {
+        "default": [
+            240,
+            248,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "ghostwhite": {
+        "default": [
+            248,
+            248,
+            255
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "whitesmoke": {
+        "default": [
+            245,
+            245,
+            245
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "seashell": {
+        "default": [
+            255,
+            245,
+            238
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "beige": {
+        "default": [
+            245,
+            245,
+            220
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "oldlace": {
+        "default": [
+            253,
+            245,
+            230
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "floralwhite": {
+        "default": [
+            255,
+            250,
+            240
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "ivory": {
+        "default": [
+            255,
+            255,
+            240
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "antiquewhite": {
+        "default": [
+            250,
+            235,
+            215
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "linen": {
+        "default": [
+            250,
+            240,
+            230
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lavenderblush": {
+        "default": [
+            255,
+            240,
+            245
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "mistyrose": {
+        "default": [
+            255,
+            228,
+            225
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "gainsboro": {
+        "default": [
+            220,
+            220,
+            220
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightgrey": {
+        "default": [
+            211,
+            211,
+            211
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "silver": {
+        "default": [
+            192,
+            192,
+            192
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkgrey": {
+        "default": [
+            169,
+            169,
+            169
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "grey": {
+        "default": [
+            128,
+            128,
+            128
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "dimgrey": {
+        "default": [
+            105,
+            105,
+            105
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "lightslategrey": {
+        "default": [
+            119,
+            136,
+            153
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "slategrey": {
+        "default": [
+            112,
+            128,
+            144
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "darkslategrey": {
+        "default": [
+            47,
+            79,
+            79
+        ],
+        "fixture types": {},
+        "fixtures": {}
+    },
+    "black": {
+        "default": [
+            0,
+            0,
+            0
+        ],
+        "fixture types": {},
+        "fixtures": {}
     }
 }

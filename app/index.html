@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title></title>
+    <title>Lighting Script</title>
     <link rel="stylesheet" href=".\skeleton.css">
     <link rel="stylesheet" href=".\style.css">
-    <!-- <script type="text/javascript" src="/eel.js"></script> -->
+    <script type="text/javascript" src="/eel.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+
 </head>
 
 <body>
@@ -15,23 +17,81 @@
             <div id="palettes"></div>
         </div>
         <div id="log"></div>
-        <div id="cuelist"><h1>cue list</h1></div>
+        <h1 id="trigger">TRIGGER</h1>
+        <div id="cuelist">
+            <div>Number, Name, Command, Timing, Commands, State</div>
+            <h1>cue list</h1>
+            <button id="timecode-toggle">timecode: starts at any cue</button>
+            <button>link to audio</button> 
+            <!-- TODO ABOVE -->
+        </div>
         <div id="timeline">
             <!-- cue needs to be in columns -->
             <!-- groups needs to be in rows -->
         </div>
-        <div class="row">
-            <input id="input" class="ten columns u-full-width" type="text">
-            <input id="submit" class="two columns u-full-width" type="submit" value="Submit">
+        <div id="programmer">
+            <h1>programmer</h1>
+            <span>active cuelist: <span id="active-cuelist"></span></span><br>
+            <span>active selection: <span id="active-selection"></span></span><br>
+            <span>currently selected: </span><br>
+            <span>selected cues: </span><span id="selected-cues"></span><br>
+            <span>intensity</span><span id="intensity"></span>
+            <span>hue</span>
+            <span>saturation</span>
+            <span>buttons = scroll, mouse movements, switch to dmx/palette/value, empty</span>
+            <div id="programmed"></div>
+            <div id="parameters">
+                <input type="color">
+                <div class="parameterProgrammer">
+                    <span class="parameterLabel">Intensity</span>
+                    <span class="parameterValue"><input class="parameterValue" type="text" name="intensity" /></span>
+                </div>
+                <div class="parameterProgrammer">
+                    <span class="parameterLabel">Hue</span>
+                    <span class="parameterValue"><input class="parameterValue" type="text" /></span>
+                </div>
+                <div class="parameterProgrammer">
+                    <span class="parameterLabel">Saturation</span>
+                    <span class="parameterValue"><input class="parameterValue" type="text" /></span>
+                </div>
+                <div class="parameterProgrammer">
+                    <span class="parameterLabel">Pan</span>
+                    <span class="parameterValue"><input class="parameterValue" type="text" /></span>
+                </div>
+                <div class="parameterProgrammer">
+                    <span class="parameterLabel">Tilt</span>
+                    <span class="parameterValue"><input class="parameterValue" type="text" /></span>
+                </div>
+            </div>
+            <input type="button" value="Record to cuelist" onclick="record_cue" />
+            <!-- <div id="position-programmer">POSTIION PROGRAMMER</div> -->
+        </div>
+        <div id="patching">
+            <h1>patching</h1>
+            <div id="universe-01"></div>
+        </div>
+        Install drivers from: https://ftdichip.com/drivers/d2xx-drivers/. Download as executable
+    Give an & to split lines
+    </div>
+    
+    <div class="row" id="terminal">
+        <input id="input" class="ten columns u-full-width" type="text">
+        <input id="submit" class="two columns u-full-width" type="submit" value="Submit">
+        <div>
+            <button id="patching-toggle">patching</button>
+            <button id="cuelist-toggle">cuelist</button>
+            <button id="programmer-toggle">programmer</button>
+            <button id="log-toggle">log</button>
         </div>
     </div>
 </body>
+<script type="text/javascript" src=".\script.js"></script>
 <script>
     let paletteDiv = document.getElementById('palettes')
     let logDiv = document.getElementById('log')
     let input = document.getElementById('input')
     // eel.expose(populateGroups)
-    function paletteBlock(name, colour) {
+    function paletteBlock(name, colour, command) {
         function convertArrayToColour(array) {
             string = `rgb(${array[0]},${array[1]},${array[2]})`
             console.log(string);
@@ -41,7 +101,7 @@
         block.className = 'paletteBlock'
         block.style.backgroundColor = convertArrayToColour(colour)
         block.onclick = function () {
-            input.value += `${type} ${name} `
+            if (Object.keys(selected_cues).length > 0) {input.value += `${command} ${name} `}
         }
         let label = document.createElement('div')
         label.style.backgroundColor = 'black'
@@ -51,7 +111,7 @@
         return block
     }
     async function populateGroups() {
-        let palettes = await eel.palette()()
+        let palettes = await eel.get_palette()()
         groups = palettes.groups
         console.log(palettes)
         delete palettes.groups
@@ -59,25 +119,29 @@
             text = document.createTextNode(group + ': ' + JSON.stringify(groups[group]))
             paletteDiv.appendChild(text)
         }
+        let commandDict = {
+            'colour': 'sc'
+        }
         for (palette in palettes) {
+            command = commandDict[palette]
             palette = palettes[palette]
             for (name in palette) {
                 let def = palette[name].default
                 console.log(def)
-                paletteDiv.appendChild(paletteBlock(name, def))
+                paletteDiv.appendChild(paletteBlock(name, def, command))
                 text = document.createTextNode(name + '\n')
-                paletteDiv.appendChild(text)
+                // paletteDiv.appendChild(text)
                 text = document.createTextNode(JSON.stringify(def))
-                paletteDiv.appendChild(text)
+                // paletteDiv.appendChild(text)
                 let types = palette[name]['fixture types']
                 for (type in types) {
                     text = document.createTextNode(JSON.stringify(type))
-                    paletteDiv.appendChild(text)
+                    // paletteDiv.appendChild(text)
                 }
                 let fixtures = palette[name].fixtures
                 for (fixture in fixtures) {
                     text = document.createTextNode(JSON.stringify(fixture))
-                    paletteDiv.appendChild(text)
+                    // paletteDiv.appendChild(text)
                 }
 
             }
@@ -87,94 +151,22 @@
     }
     let timeline = document.getElementById('timeline')
     let cuelist = document.getElementById('cuelist')
-    function fillTimeline() {
-        // let cueLists = await eel.cuelists()()
-        let None = ''
-        cueLists = {
-            'mainCueList': [
-                {
-                    'name': 'beat',
-                    'desc': 'pars flash',
-                    'timing': 'manual',
-                    'commands': 'pars on',
-                    'dmx': {
-                        1: [255, 0, 'linear'],
+    let humanDMX = new Array(512).fill(null)
+    humanDMX[1] = [101, 'intensity']
+    humanDMX[9] = [102, 'intensity']
+    patching = {
+        101: [1, 'trimmer par'],
+        102: [9, 'trimmer par']
+    }
+    function refresh_humanDMX() {
+        for (fixture in patching) {
+            let [address, fixtureType] = patching[fixture]
 
-                    }
-                    'dmx': [[1, 255, 0], [2, 255, 0], [2, 0, 2, 'delay']],
-                    'state': [None, None, None]
-                },
-                {
-                    'name': 'beat',
-                    'desc': 'pars flash',
-                    'timing': 'follow',
-                    'dmx': [[1, 0, 0]],
-                    'state': [None, None]
-                }
-            ]
-        }
-        lists = cueLists.cue_lists
-        lists = cueLists
-        patching = {
-            101: [219, 'trimmer par'],
-            102: [8, 'trimmer par']
-        }
-        for (list in lists) {
-            // list = mainCueList
-            console.log(list)
-            let cueHeaderGroup = document.createElement('div')
-            cueHeaderGroup.className = 'cueGroup'
-            for (light in patching) {
-                let cueItem = document.createElement('div')
-                cueItem.className = 'cueHeader'
-                cueItem.innerText = light
-                cueHeaderGroup.appendChild(cueItem)
-                
-            }
-            timeline.appendChild(cueHeaderGroup)
-            for (cue of lists[list]) {
-                console.log(cue);
-                // cue = cue object
-                let name = cue.name
-                let desc = cue.desc
-                let timing = cue.timing
-                let commands = cue.commands
-                let dmx = cue.dmx
-                let state = cue.state
-                let cueRow = document.createElement('div')
-                cueRow.className = 'cueRow'
-                cueRow.innerText = `${name}, ${desc}, ${timing}, ${commands}, ${dmx}, ${state}`
-                cuelist.appendChild(cueRow)
-                // TODO: resizable divs
-                let cueGroup = document.createElement('div')
-                cueGroup.className = 'cueGroup'
-                for (light in patching) {
-                    
-                    let cueItem = document.createElement('div')
-                    cueItem.className = 'cueItem'
-                    cueGroup.appendChild(cueItem)
-                }
-                console.log(cueGroup)
-                timeline.appendChild(cueGroup)
-                console.log('hi', cue.dmx);
-                for (command of cue.dmx) {
-
-                }
-
-            }
         }
     }
-    // populateGroups()
-    fillTimeline()
-    let inputBtn = document.getElementById('submit')
-    inputBtn.onclick = function handleSubmit() {
-        console.log(input.value)
-        eel.read_line(input.value)
-        let text = document.createTextNode(input.value)
-        logDiv.appendChild(text)
-        input.value = ''
-        return
-    }
+
+    select_cuelist()
+    populateGroups()
 </script>
 
 </html>

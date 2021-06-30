@@ -1,16 +1,32 @@
 {
     "name": "laser",
-    "channels": 10,
+    "channelCount": 10,
     "notes": "",
     "mapping": {
         "mode": {
             "channel": 1,
             "conditional": false,
             "values": {
-                "closed": ["block", 0, 63],
-                "manual": ["block", 64, 127],
-                "auto": ["block", 128, 191],
-                "sound": ["block", 192, 255]
+                "closed": [
+                    "block",
+                    0,
+                    63
+                ],
+                "manual": [
+                    "block",
+                    64,
+                    127
+                ],
+                "auto": [
+                    "block",
+                    128,
+                    191
+                ],
+                "sound": [
+                    "block",
+                    192,
+                    255
+                ]
             }
         },
         "submode": {
@@ -19,28 +35,67 @@
             "conditions": {
                 "closed": {
                     "values": {
-                        "-": ["block", 0, 255]
+                        "-": [
+                            0,
+                            255
+                        ]
                     }
                 },
                 "manual": {
                     "values": {
-                        "pattern": ["range", 0, 255]
+                        "pattern": [
+                            "range",
+                            0,
+                            255
+                        ]
                     }
                 },
                 "auto": {
                     "values": {
-                        "mode 1": ["block", 0, 63],
-                        "mode 2": ["block", 64, 127],
-                        "mode 3": ["block", 128, 191],
-                        "mode 4": ["block", 192, 255]
+                        "mode 1": [
+                            "block",
+                            0,
+                            63
+                        ],
+                        "mode 2": [
+                            "block",
+                            64,
+                            127
+                        ],
+                        "mode 3": [
+                            "block",
+                            128,
+                            191
+                        ],
+                        "mode 4": [
+                            "block",
+                            192,
+                            255
+                        ]
                     }
                 },
                 "sound": {
                     "values": {
-                        "mode 1": ["block", 0, 63],
-                        "mode 2": ["block", 64, 127],
-                        "mode 3": ["block", 128, 191],
-                        "mode 4": ["block", 192, 255]
+                        "mode 1": [
+                            "block",
+                            0,
+                            63
+                        ],
+                        "mode 2": [
+                            "block",
+                            64,
+                            127
+                        ],
+                        "mode 3": [
+                            "block",
+                            128,
+                            191
+                        ],
+                        "mode 4": [
+                            "block",
+                            192,
+                            255
+                        ]
                     }
                 }
             }
@@ -49,8 +104,153 @@
             "channel": 3,
             "conditional": false,
             "values": {
-                "rotationAngle": ["range", 0, 127],
-                "clockwiseRotationSpeed": []
+                "rotationAngle": [
+                    "range",
+                    0,
+                    127
+                ],
+                "clockwiseRotationSpeed": [
+                    "range",
+                    128,
+                    191
+                ],
+                "anticlockwiseRotationSpeed": [
+                    "range",
+                    192,
+                    255
+                ]
+            }
+        },
+        "horizontalAngle": {
+            "channel": 4,
+            "conditional": false,
+            "values": {
+                "horizontalFlip": [
+                    "range",
+                    0,
+                    127
+                ],
+                "horizontalFlipSpeed": [
+                    "range",
+                    128,
+                    255
+                ]
+            }
+        },
+        "verticalAngle": {
+            "channel": 5,
+            "conditional": false,
+            "values": {
+                "verticalFlip": [
+                    "range",
+                    0,
+                    127
+                ],
+                "verticalFlipSpeed": [
+                    "range",
+                    128,
+                    255
+                ]
+            }
+        },
+        "horizontalPosition": {
+            "channel": 6,
+            "conditional": false,
+            "values": {
+                "horizontalPosition": [
+                    "range",
+                    0,
+                    127
+                ],
+                "horizontalPositionSpeed": [
+                    "range",
+                    128,
+                    255
+                ]
+            }
+        },
+        "verticalPosition": {
+            "channel": 7,
+            "conditional": false,
+            "values": {
+                "verticalPosition": [
+                    "range",
+                    0,
+                    127
+                ],
+                "verticalPositionSpeed": [
+                    "range",
+                    128,
+                    255
+                ]
+            }
+        },
+        "zoom": {
+            "channel": 8,
+            "conditional": false,
+            "values": {
+                "size": [
+                    "range",
+                    0,
+                    63
+                ],
+                "smallToLargeSpeed": [
+                    "range",
+                    64,
+                    127
+                ],
+                "largeToSmallSpeed": [
+                    "range",
+                    128,
+                    191
+                ],
+                "sizeSpeed": [
+                    "range",
+                    192,
+                    255
+                ]
+            }
+        },
+        "colour": {
+            "channel": 9,
+            "conditional": false,
+            "values": {
+                "colourSingle": [
+                    "range",
+                    0,
+                    63
+                ],
+                "colourMixing": [
+                    "range",
+                    64,
+                    127
+                ],
+                "autoSingleColour": [
+                    "range",
+                    128,
+                    191
+                ],
+                "autoMixingColour": [
+                    "range",
+                    192,
+                    255
+                ]
+            }
+        },
+        "node": {
+            "channel": 10,
+            "conditional": false,
+            "values": {
+                "dotsAndLines": [
+                    "block",
+                    0,
+                    127
+                ],
+                "dotsNoLines": [
+                    "block",
+                    128,
+                    255
+                ]
             }
         }
     }

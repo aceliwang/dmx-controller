@@ -7,70 +7,20 @@ from DMXClient import DMXClient
 import snoop
 import time
 import threading
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--gui', action='store_true')
-parser.add_argument('-v', '--verbose', action='store_true')
-parser.add_argument('-c', '--connect', action='store_true')
-args = parser.parse_args()
-print(args)
 
 # other https://www.dmxis.com/
 
 CLIENT_CONNECTION_STATUS = False
 BLIND_STATUS = False
-VERBOSE_MODE = args.verbose
 dClient = DMXClient('PODU')
-# DMX_BUFFER = [{1: (val := (int((k) * 255 / 88))), 2: val} for k in range(88)] ## this option drops less frames
-DMX_BUFFER = {} ## this options drops some frames
 
-import math
-# DMX_BUFFER = [
-#     {
-#         3 + j: max(0, min(255, 128 + int(255 * math.sin(math.pi * (i+ 18 * j) / 44)))) for j in range(12)
-# } for i in range(200)]
-dmxSender = None
 
-smallCounter = 0
+
 def connect():
     global CLIENT_CONNECTION_STATUS
     dClient.connect()
     CLIENT_CONNECTION_STATUS = True
-    dClient.write('DMX 1 255')
-    def dmxSending(Hz = 44):
-        startTime = time.time()
-        counter = 0
-        # for i in range(500):
-        global DMX_BUFFER
-        period = 1.0 / Hz
-        global smallCounter
-        while True:
-            frameTime = startTime + counter / Hz
-            while time.time() < frameTime:
-                pass
-            # print(counter, DMX_BUFFER, time.time())
-            if bool(DMX_BUFFER):
-                # dClient.write(DMX_BUFFER.pop(0))
-                dClient.write(DMX_BUFFER)
-                DMX_BUFFER = {}
-                smallCounter += 1
-                print(counter, smallCounter, time.time() - startTime)
-            counter += 1
-    global dmxSender
-    dmxSender = threading.Thread(target=dmxSending)
-    dmxSender.start()
-    # TODO multithread
     return
-if args.connect: connect()
-
-def bye():
-    try:
-        dmxSender.join()
-        gui.join()
-    finally:
-        exit()
-
 
 # load file
 
@@ -95,44 +45,24 @@ cuelists = {
         {
             'name': 'beat',
             'desc': 'pars flash',
-            'timing': 0.0,  # or timecode or follow
+            'timing': 'manual',  # or timecode
             'commands': {
-                'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
-                'effects': []
+                'pars on': [[1, 255, 0, 'linear']]
             },
             'state': [None, None, None] # put in cumulative values of beforehand
         },
         {
             'name': 'beat',
             'desc': 'pars flash', # how to get flashes working?????
-            'timing': 1.0,
-            'commands': {
-                'pars off': [[1, 0, 0, 'linear'], [9, 0, 0, 'linear']]
-            },
-            'state': [None, None, None]
-        },
-        {
-            'name': 'beat',
-            'desc': 'pars flash',
-            'timing': 2.0,  # or timecode or follow
-            'commands': {
-                'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']]
-            },
-            'state': [None, None, None] # put in cumulative values of beforehand
-        },
-        {
-            'name': 'beat',
-            'desc': 'pars flash', # how to get flashes working?????
-            'timing': 'manual',
+            'timing': 'follow',
             'commands': {
                 'pars off': [[1, 128, 0, 'linear']]
             },
             'state': [None, None, None]
-        },
+        }
     ]
 }
 
-# TODO: with patching
 dmx_to_human = {
     219: [101, 'ON'],
     225: [101, 'R'],
@@ -143,56 +73,16 @@ dmx_to_human = {
 DEFAULT_ON_INTENSITY = 100
 DEFAULT_OFF_INTENSITY = 0
 DEFAULT_FADE_TIME = 2
-DEFAULT_CUE_NAME = 'Cue'
 
 # SHOW STATE
-@eel.expose
-def start_timecode(cuelist, cue_number=0):
-    cuelist = 'mainCueList'
-    timecodePrep = {}
-    # for index, cue in enumerate(cuelists[cuelist]):
-    #     # if I want to run multiple cues? I do want to run multiple cues together
-    #     # for index, cue in enumerate(cuelists[list]):
-    #     timing = cue['timing']
-    #     if not isinstance(timing, (float, int)):
-    #         continue
-    #     if timing in timecodePrep:
-    #         timecodePrep[timing].append(index)
-    #     else:
-    #         timecodePrep[timing] = [index]
-    timecodePrep = {cue['timing']: index for index, cue in enumerate(cuelists[cuelist]) if isinstance(cue['timing'], (float, int))}
-    # if time
-    timecodeList = [item for item in timecodePrep.items()]
-    timecodeList.sort(key=lambda x: x[0])
-    timings = [timing for timing, *_ in timecodeList]
-    matchedCues = [cues for _, cues in timecodeList]
-    def activate_timecode(cuelist, cue_number):
-        # TORESUME
-        startTime = time.time() - cuelists[cuelist][cue_number]['timing']
-        # cuelist = cuelists[list] if extracting the cuelist
-        startIndex = matchedCues.index(cue_number)
-        for i in range(len(timings[startIndex:])):
-            while (time.time() - startTime) < timings[startIndex:][i]:
-                pass
-            print(f'[PLAYBACK: {cuelist}]: {time.time() - startTime}')
-            play_cue(cuelist, matchedCues[startIndex:][i])
-            # TODO: select the relevant cue on the gui
-    activate_timecode(cuelist, cue_number)
+
+
+
+def play_cue(cue_list_name, cue_number=0):
+    if cue_list_name in ACTIVE_CUELISTS:
+        fade(cuelists[cue_list_name][cue_number]['dmx'])
+        ACTIVE_CUELISTS[cue_list_name] = cue_number + 1
     return
-
-
-
-
-
-
-# def play_cue(cue_list_name, cue_number=0):
-#     if cue_list_name in ACTIVE_CUELISTS:
-#         if cuelists[cue_list_name][cue_number]['timing'] == 0:
-#             # start_timecode()
-#             pass
-#         fade(cuelists[cue_list_name][cue_number]['dmx'])
-#         ACTIVE_CUELISTS[cue_list_name] = cue_number + 1
-#     return
 
 
 # PROGRAMMING
@@ -305,77 +195,23 @@ def set_intensity(selection, value, fade_time=0, curve='linear', verbose=False, 
     for fixture in select(selection):
         iChannel = findChannel(fixture, 'intensity')
         fade_arguments.append((iChannel, value, fade_time, curve))
-    if verbose: print(f'[CHECK]: {fade_arguments}')
+    if verbose: print(f'[SET_INTENSITY]: {fade_arguments}')
     if cuelist_mode: return fade_arguments
     else:
-        print(f"HELLO", fade_arguments)
+        print(fade_arguments)
         fade(*fade_arguments)
     return fade_arguments
 
-def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cuelist_mode=False):
+def setColour(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
     if isinstance(value, str) and value not in p['colours'].keys():
         print(f'[ERROR]: Colour "{value}" does not exist.')
         return
     # TODO: validate tuple
     selection = select(selection)
-    fade_arguments = []
-    def write_colour_to_DMX(fixture, colour_value):
-        # ARG: colour_value = [red, green, blue]
-        # colour_value = [255, 0, 0], default = red, green, blue
+    programDMX = []
+    def write_colour_to_DMX(fixture, colourValue):
         dmxChanges = []
-        # red, green, blue = colour_value
-        # colour_value = {}
-        address, fixture_type = patching[fixture]
-        # colourType = fixture_types[fixture_type]['colour_mapping']
-        colourType = 'rgb'
-        colourDict = {
-            'r': 'red',
-            'g': 'green',
-            'b': 'blue',
-            'a': 'amber',
-            'w': 'white',
-            'u': 'uv'
-        }
-        def translate_colour(colour_value, colourType):
-            # colour_value: given in HSI
-            # colourType: RGB, RGBA, RGBAW, RGBW, ?UV
-            return colour_value
-            if colourType == 'rgb': return colour_value
-            if colourType == 'rgbw':
-                # converts HSI to RGBW
-                hueDeg, sat, intensity = colour_value
-                hueDeg = hueDeg % 360
-                hueRad = hueDeg * math.pi / 180
-                sat = max(0, min(sat, 1))
-                intensity = max(0, min(intensity, 1))
-                if hueDeg < 120:
-                    cos_h = math.cos(hueRad) 
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    red = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h) # TODO: check fraction
-                    green = sat * 255 * intensity / 3 * (1 + (1 - cos_h/cos_1047_h))
-                    blue = 0
-                    white = 255 * (1 - sat) * intensity
-                elif hueDeg < 240:
-                    hueRad = hueRad - math.pi * 2 / 3
-                    cos_h = math.cos(hueRad)
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    green = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
-                    blue = sat * 255 * intensity / 3 * (1 + (1 - cos_h/cos_1047_h))
-                    red = 0
-                    white = 255 * (1 - sat) * intensity
-                else:
-                    hueRad = hueRad - math.pi * 4 / 3
-                    cos_h = math.cos(hueRad)
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    blue = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
-                    red = sat * 255 * intensity / 3 * (1 + (1 - cos_h/cos_1047_h))
-                    green = 0
-                    white = 255 * (1 - sat) * intensity
-            return [round(i) for i in (red, green, blue, white)]
-        return [(findChannel((address, fixture_type), colourDict[colour]),
-                end := translate_colour(colour_value, colourType)[index], # TODO
-                fade_time,
-                'sine') for index, colour in enumerate(colourType)]
+        r, g, b, *a = colourValue
         rChannel = findChannel(fixture, 'red')
         gChannel = findChannel(fixture, 'green')
         bChannel = findChannel(fixture, 'blue')
@@ -383,50 +219,44 @@ def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cue
         if len(a) > 0:
             aChannel = findChannel(fixture, 'amber')
             dmxChanges.extend([aChannel, a[0]])
-        dmxChanges = [(rChannel, r, fade_time, 'sine')]
-        return dmxChanges # return [(address, end, length, curve) * 3]
+        return dmxChanges
     if isinstance(value, str):
         palettes = p['colours']
-        value = value.lower()
         for fixture in selection:
             try:
                 colourValue = palettes[value]['fixtures'][fixture]
-                break
             except KeyError:
-                try: 
-                    colourValue = palettes[value]['fixture types'][patching[fixture][1]]
-                    break
-                except KeyError:
-                    colourValue = palettes[value]['default']
-                    
-            # finally: # TODO: fix
-            #     colourValue = palettes[value]['default']
-            fade_arguments.extend(write_colour_to_DMX(fixture, colourValue))
+                colourValue = palettes[value]['fixture types'][patching[fixture][1]]
+            finally:
+                colourValue = palettes[value]['default']
+            programDMX.extend(write_colour_to_DMX(fixture, colourValue))
     elif isinstance(value, tuple):
         colourValue = value
         for fixture in selection:
-            fade_arguments.append(write_colour_to_DMX(fixture, colourValue))
-    if verbose: print(f'[CHECK]: {fade_arguments}')
-    if cuelist_mode: return fade_arguments
-    else:
-        print(fade_arguments)
-        fade(*fade_arguments)
-    return fade_arguments
+            programDMX.extend(write_colour_to_DMX(fixture, colourValue))
+    def translate_colour():
+        blindDMX.extend()
+        return
+    # if seeBlindDMX:
+    #     print(f'[CHECK]: {programDMX}')
+    blindDMX.extend(programDMX)
+    # if push:
+    #     dClient.write(blindDMX)
+        # fade((channel, end, length), curve)
+        ## how does this work for colour
+    return programDMX
 
 # command > dmxValues ie. program DMX > cueList
 # command > dmxValues
 
-def set_position(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
+def setPosition(selection, value, fade=0, curve='linear', verbose=False, cuelist_mode=False):
     # VALUE OPTIONS
-    # STR: identifies a group
-    # LIST OR TUPLE: identifies a raw data
+    # STR
+    # TUPLE
     if isinstance(value, str):
         if (position_palette := p.get('positions')):
             return
         elif position_palette: return
-    elif isinstance(value, (list, tuple)):
-
-        return
     return
 
 active_effects = {
@@ -452,13 +282,10 @@ def run_effects():
     return
 
 
-def findChannel(fixture_details, parameter):
-    # fixture_details: either fixture number according to patching or tuple with (address and fixtureType)
+def findChannel(fixture, parameter):
+    # fixture: fixture number according to patching
     # parameter: fixture type parameter name according to json
-    if isinstance(fixture_details, tuple):
-        address, fixtureType = fixture_details
-    else:
-        address, fixtureType = patching[int(fixture_details)]
+    address, fixtureType = patching[fixture]
     dmxChannel = address - 1 + \
         fixture_types[fixtureType]['mapping'][parameter]['channel']
     return dmxChannel
@@ -515,18 +342,7 @@ def import_fixture_type(*fixtureType):
     return
 
 
-def patch(fixtureType, fixtureNo, quantity, address=None, step=False):
-    if fixtureType not in fixture_types:
-        print(f'patch [ERROR] Fixture type {fixtureType} does not exist')
-        return
-    channelNumber = fixture_types[fixtureType]['channels']
-    start = address
-    end = address + quantity * channelNumber
-    if sum(map_patching()[start:end]) > 0:
-        print(f'patch [ERROR] Address targets are already occupied.')
-    else:
-        for i in range(quantity):
-            patching[fixtureNo + i] = [address + i * channelNumber, fixtureType]
+def patch(fixtureType, fixtureNo, address=None, step=False):
     return
 
 # // patching
@@ -539,7 +355,7 @@ def patch(fixtureType, fixtureNo, quantity, address=None, step=False):
 def map_patching():
     channelAssignment = [-1] + [0] * 255
     for fixtureNo, (address, fixtureType) in patching.items():
-        for channel in range(address, address + fixture_types[fixtureType]['channels']):
+        for channel in range(address, address + fixture_types[fixtureType]['channels'] - 1):
             channelAssignment[channel] += 1
     return channelAssignment
 
@@ -765,7 +581,7 @@ def clean_line(line):
              1] = ''.join(args[arg1Index:arg2Index + 1])
         args.pop(originalOperatorIndex)  # pop operator
         args.pop(originalOperatorIndex)  # pop arg 2
-    print(f'clean_args args: {args}')
+    print(args)
     return args
 
 class cli(cmd.Cmd):
@@ -781,7 +597,7 @@ aliases = {
 def select_cuelist(*cuelist):
     cuelist = cuelist[0]
     if cuelist not in cuelists:
-        cuelists[cuelist] = [] # TODO: change to a dictionary
+        cuelists[cuelist] = []
     global SELECTED_CUELIST
     SELECTED_CUELIST = cuelist
     if GUI_STATE: eel.refresh_selected_cuelist(SELECTED_CUELIST)
@@ -795,8 +611,6 @@ def knock(*selection): # TODO: new programmer structure
 
 def record():
     cue = {
-        'name': DEFAULT_CUE_NAME,
-        'desc': ' ',
         'commands': {
             f'{instruction} {value}': commandsDict[(instructionArgs := instruction.split(' '))[-1]][1](
                 selection=select(instructionArgs[:-1]),
@@ -813,7 +627,6 @@ def record():
     if GUI_STATE: eel.refresh_timeline()
     return
 
-
 commandsDict = {
         # command: (type, function, parameter)
         # 'select': {'function': 'select'},
@@ -826,18 +639,14 @@ commandsDict = {
         'in': None,
         'seti': ('program', set_intensity, 'intensity'),
         'si': ('program', set_intensity, 'intensity'),
-        'sc': ('program', set_colour, 'colour'),
-        'knock': ('meta', knock),
-        'record': ('meta', record)
+        'sc': ('program', setColour),
+        'knock': ('meta', knock)
     }
-
-
 
 @eel.expose
 def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
     if line == '': return
     cuelist = SELECTED_CUELIST
-    
     args = clean_line(line)
     ### split into commands and arguments
     command_list = []
@@ -852,7 +661,7 @@ def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
             temp_commands = []
         temp_commands.append(arg)
     command_list.append(temp_commands)
-    print(f'read_line command list: {command_list}')
+    print(f'command list: {command_list}')
     
     ###
     ### perform commands
@@ -887,7 +696,8 @@ def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
             temp_commands.append(command)
         else: # if command
             temp_commands.append(command)
-    print(f'read_line selected cuelist: {cuelist}')
+    print(cue)
+    print('cuelist', cuelist)
     if len(temp_commands) == 0: eel.refresh_selection(select(selection))
     for command in temp_commands:
         if (command_type := commandsDict[command[0]][0]) == 'program':
@@ -926,10 +736,10 @@ def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
                 elif instruction in programmer[fixture][parameter]:
                     del programmer[fixture][parameter][instruction]
                 programmer[fixture][parameter][instruction] = value
+                
         elif command_type == 'meta':
             commandsDict[command[0]][1](*command[1:])
     if GUI_STATE and programmer: eel.refresh_programmer(wrap_programmer(programmer))
-    # print(f'read_line cue package: {cue}')
     # return a cue: {timing, fadeTime, name} and temp commands [macs si 25] [macs sp home]
     return cue
 
@@ -966,18 +776,11 @@ def parse_assignment(string):
 
 def calculate_state(cue_list):
     state = [None] * 256
-    def store_state(cue):
+    for cue in cuelists[cue_list]:
+        for command in cue['commands'].values():
+            for channel, value, fade, curve in command:
+                state[channel] = value
         cue['state'] = state
-        for channel, value, *_ in [dmx for command in cue['commands'].values() for dmx in command]:
-            # print(channel, value)
-            state[channel] = value
-        # print(state)
-        return cue
-    cuelists[cue_list] = list(map(store_state, cuelists[cue_list]))
-    # for cue in cuelists[cue_list]:
-    #     cue['state'] = state
-    #     for channel, value, *_ in [dmx for command in cue['commands'].values() for dmx in command]:
-    #         state[channel] = value
     return
 
 def save():
@@ -1039,7 +842,8 @@ def read_script(file):
             groups()
 
 @eel.expose
-def play_cue(cuelist, cue_number=False, source='back'):
+@snoop
+def play_cue(cuelist, cue_number=False):
     if cue_number is False:
         if cuelist in ACTIVE_CUELISTS:
             cue_number = ACTIVE_CUELISTS[cuelist]
@@ -1049,9 +853,6 @@ def play_cue(cuelist, cue_number=False, source='back'):
     dmx = [arg for name, fade_arguments in commands.items() for arg in fade_arguments]
     print(dmx)
     fade(*dmx)
-    if source == 'back':
-        eel.remove_cue_from_selection(cuelist, cue_number)
-        eel.add_cue_to_selection(cuelist, cue_number + 1)
     return True
 
 @eel.expose
@@ -1126,10 +927,9 @@ def stopGUI():
 
 
 gui = threading.Thread(target=startGUI)
-if args.gui: gui.start()
+gui.start()
 # startGUI()
 
-import math
 currentDMX = [0] * 256
 def fade(*instructions, effects=None): # channel, end, length, curve
     # instruction = array of tuples.
@@ -1145,7 +945,6 @@ def fade(*instructions, effects=None): # channel, end, length, curve
     curves = {
         'linear': lambda delta, start, end, duration : int(start + (end - start) * delta / duration) if duration > 0 else int(end),
         'delay': lambda delta, start, end, duration : int(end) if delta >= duration else None,
-        'sine': lambda delta, start, end, duration : int(start + (end - start) * delta / duration) if duration > 0 else int(end), # TODO: convert to sine
     }
     # STEP 2A: calculate new values according to multiple instructions and add these instructions together
     timer = time.perf_counter()
@@ -1155,7 +954,7 @@ def fade(*instructions, effects=None): # channel, end, length, curve
     max_duration = max([duration for (a, b, duration, c) in instructions])
     # end_values = {1: 0}
     # break criteria: if deltaTime >= duration && previous_value <= or >= end_value
-    while True: # TODO: change to generator function
+    while True:
         # TODO: when to break out? how to compare to end value
         # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) < 0, continue
         # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) >= 0, achieved > remove from comparison. Once all removed from comparison, break?
@@ -1163,10 +962,7 @@ def fade(*instructions, effects=None): # channel, end, length, curve
         # calculate values according to curves
         new_values = {channel: value for (channel, start, end, duration, curve) in instruction_q if ((value := curves[curve](deltaTime, start, end, duration)) is not None)}
         # {1: 255} then {1: 0}
-        
-        if CLIENT_CONNECTION_STATUS:
-            # TO DELETE: dClient.write(new_values)
-            DMX_BUFFER.update(new_values)
+        if CLIENT_CONNECTION_STATUS: dClient.write(new_values)
         for channel in new_values.keys():
             currentDMX[channel] = new_values[channel]
         previous_values = new_values
@@ -1190,20 +986,18 @@ def init_listen_to_movement(startingPosition=[50, 50], channel=1):
             mouse.unhook(listen_to_movement)
             # print('unhooked')
         x, y = mouse.get_position()
-        if not keyboard.is_pressed(42): # shift key
-            if x > x_coordinate: 
-                new_x += 3
-                print('right', x, new_x)
-            elif x < x_coordinate:
-                new_x -= 3
-                print('left', x, new_x)
-        if not keyboard.is_pressed(29): # ctrl key
-            if y > y_coordinate:
-                new_y -= 3
-                print('down', y, new_y)
-            elif y < y_coordinate:
-                new_y += 3
-                print('up', y, new_y)
+        if x > x_coordinate: 
+            new_x += 3
+            print('right', x, new_x)
+        elif x < x_coordinate:
+            new_x -= 3
+            print('left', x, new_x)
+        if y > y_coordinate:
+            new_y -= 3
+            print('down', y, new_y)
+        elif y < y_coordinate:
+            new_y += 3
+            print('up', y, new_y)
         mouse.move(x_coordinate, y_coordinate)
         fade([channel, new_y, 0, 'linear'])
         eel.change_intensity((new_x, new_y))
@@ -1219,62 +1013,3 @@ def record_programer_to_cuelist(cuelist=None):
 
 
 # colour fade resource: https://www.sparkfun.com/news/2844
-# HSI resource: https://cc.bingj.com/cache.aspx?q=hsi+to+rgb+for+led&d=4642254276268138&mkt=en-AU&setlang=en-GB&w=uASazgpuZIk_DdvTn7CgRM5S0bT1kRge
-# HSI resource: https://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
-
-def hi():
-    while True:
-        lol = input('What is your input?')
-        print(f'DMX {lol}')
-        dClient.write(f'DMX {lol}')
-
-def lol():
-    while True:
-        for i in range(30, 75, 3):
-            go = 'DMX ' + ' '.join([f"{j} 0" if j != i else f"{j} 255" for j in range(2, 512) ])
-            dClient.write(go)
-
-def lol2():
-    hi = time.time()
-    counter = 0
-    for i in range(44):
-        deadline = hi + i * 1/44.0
-        while time.time() < deadline:
-            pass
-        print(i, time.time() - hi, (actual := i * 1/40.0), actual - time.time() + hi)
-
-# read_line('startcl mainCueList')
-# read_line('pars si 100')
-
-def rl(arg):
-    read_line(arg)
-
-# resources: STOP SCROLLING: https://stackoverflow.com/questions/4770025/how-to-disable-scrolling-temporarily
-# DONE: implement a form of timecode
-# TODO: effects
-# TODO: dualshock controller
-# TODO: rebuild server into python?
-# TODO: calibration for mouse tracking for 
-
-effectsLib = {
-    1: "time since it started", parameters: hi
-}
-# how to manage state
-def in_fade():
-    if channel in effectsLib:
-        modifier = effect(channel, size, )
-        return original_value + modifier
-
-
-## cuelist = [commands, effects=[to start]]
-def effect(channel, lib, parameters):
-    
-    # if relative: apply to fade value?
-    # TODO: if absolute: override fade value?
-    # tbh this should all be in a generator function with fade
-    sine = lambda x: size * math.sin(length * x + hoz) + ver
-    tangent = lambda x: size * math.tan(length * x + hoz) + ver
-    none = lambda x: x
-    # x is the time value since start of the effect
-    # TODO: clamp value between 0 and 255
-    return
