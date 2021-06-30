@@ -33,11 +33,19 @@ if __name__ == '__main__':
 
 BLIND_STATUS = False  # TODO WHY THIS
 VERBOSE = args.verbose
-# DMX_BUFFER = [{1: (val := (int((k) * 255 / 88))), 2: val} for k in range(88)] ## this option drops less frames
-# using a dictionary drops some frames
+# [TODO]: [CLEAN] DMX_BUFFER = [{1: (val := (int((k) * 255 / 88))), 2: val} for k in range(88)] ## this option drops less frames
+# [TODO]: [CLEAN] using a dictionary drops some frames
+
+# DEFAULTS
+
+class default():
+    on_intensity = 100
+    off_intensity = 0
+    fade_time = 2
+    cue_name = 'Cue'
+    # TODO: [CONFIG]
 
 # HARDWARE
-
 
 class DMXSender():
     '''
@@ -369,7 +377,31 @@ class Programmer():
         return channel
 
     def track_mouse_move(self, x, y):
+        # TODO: [REFACTOR]
         pass
+
+    def record_programmer(self, cuelist):
+        Show.cuelists[cuelist].append(
+            Cue(
+                name=default.cue_name,
+                desc='',
+                commands={
+                    f'{instruction} {value}': self.commands_lib[
+                        (action := instruction.split(' ')[-1])
+                    ][1](
+                        selection=self.select(instruction.split(' ')[:-1]),
+                        value=value,
+                        fade_time=default.fade_time,
+                        curve='linear', # TODO: does this take into account programmer?
+                        cuelist_mode=True
+                    ) for instruction, value in Programmer.programmer['commands'].items()
+                    # TODO: [CLEAN]. Make programmer a Class?
+                },
+            )
+        )
+        Show.cuelists[cuelist].update_state()
+        if GUI.state: eel.refresh_timeline()
+        return
 
     @classmethod
     def js_programmer(self):
@@ -454,24 +486,45 @@ class Cuelist():
         state = [None] * 256
         # TODO: [EFFECT] store effect into state somehow
         def calculate_state(cue):
-            cue['state'] = state
-            for channel, value, *_ in [dmx for command in cue['commands'].values() for dmx in command]:
+            cue.state = state
+            for channel, value, *_ in [dmx for command in cue.commands.values() for dmx in command]:
                 state[channel] = value
             return cue
         self.cues = list(map(calculate_state), self.cues)
         return
 
-
 class Cue():
-    def __init__(self):
+    '''
+    Attributes:
+        commands (dict): eg. 'pars si 100': 
+            This can be split up further for definitions:
+                selection = 'pars'
+                action = 'si'
+                value = '100'
+                instruction = 'pars si'
+                sub_command = 'si 100'
+
+    '''
+    def __init__(self, name=False, desc='', timing='manual'):
         # TODO
+        self.name = name # TODO: config
+        self.desc = desc
+        self.commands = {
+            f'{instruction} {value}': commands_lib[]
+        }
+        self.timing = timing
+        self.state = []
         return
+
+    def update_commands(self):
+        pass
+
 
 # UI
 
 
 class GUI():
-    GUI_STATE = False
+    state = False
 
     def start_gui():
         '''
@@ -485,7 +538,7 @@ class GUI():
     def start(self):
         self.gui = threading.Thread(target=self.start_gui)
         self.gui.start()
-        self.GUI_STATE = True
+        self.state = True
 
     @classmethod
     def stop(self):
@@ -686,15 +739,8 @@ dmx_to_human = {
     225: [101, 'R'],
 }
 
-# VARIABLES
-
-DEFAULT_ON_INTENSITY = 100
-DEFAULT_OFF_INTENSITY = 0
-DEFAULT_FADE_TIME = 2
-DEFAULT_CUE_NAME = 'Cue'
 
 # SHOW STATE
-
 
 @eel.expose
 def start_timecode(cuelist, cue_number=0):
@@ -947,137 +993,6 @@ def set_effect(selection, value_args, fade=0, curve='linear', verbose=False, cue
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
 
 
-# // patching
-# fixtureType.patch((101, 105), 'start address', 'default ie. name.json')
-# (101, 105).patch(fixtureType, 'start address', 'step address')
-# patch 'trimmer pars' 101 > 105 from 322 every 100
-# // figure out how to do
-# // patch dmx output device
-
-
-# group = select(101, 104, (201, 205))
-# // GROUPS(DOES NOT REQUIRE SAVE TO VARIABLE)
-# // select(a, (b, c) ...)
-# // select a and range from b to c
-# // alt = s
-# // can save to variable ie group or can be cleared
-# grand = select(all)
-# // default establishment
-# // should be an active call or integrated into patch
-
-# group.plus(a, b, c)
-# // append to group
-
-
-# state.record()
-# state.add()
-# // group of presets ie.
-
-# colour.record(0, 100, 'a, optional')
-# // COLOUR
-# // record 0, 100 for fixtures 'a' to 'colour name'
-# // hs, rgb
-#  record (0, 100) for fixtures 'a' as red
-
-# position.record()
-
-# beam.record('gobo', 3)
-
-# clear()
-
-# fixture.si(a, 5)
-# // set intensity to a over 5 seconds
-# // how do i make changing the 5 second fade easy in theatre
-# // can replace 5 with manual for mouse input
-
-# fixture.ss()
-
-# fixture.sc()
-# // set colour
-# fixture.on()
-# // fixture.sc(default on intensity)
-# fixture.off()
-# // fixture.sc(default off intensity: 0)
-
-# fixture.sp(tilt, pan)
-# // set position
-# // use a mouse to program position
-# // use a modifier key to transform orientation
-
-# fixture.sb('gobo')
-# // set beam
-
-# fixture.set('custom', value)
-# // is everything else a function call of this?
-
-
-# repeat()
-# // create function for chase
-
-
-# fixture.se(effect)
-# effect.record(default rate) {
-#     fixture.si('sine', 50)
-#     for(i in range 100) {
-#         fixture.si(50)
-#     }
-# }
-# // create effect
-
-# //  # cue sequence
-# seq = function() {
-#     cyc.on()
-#     at(4).cyc.off()
-# }
-
-# // artnet output
-# // osc output
-# fixture.sosc('asdfasdfs')
-
-# // CUES
-
-# // need to figure out timing
-
-# clock.start(0) // start clock at 0
-# at(0) cyc.on().sc(blue)
-# at(2.5) {
-#     cyc.off()
-#     pars.on()
-# }
-# at(0).every(5)
-# // repeat every 5 seconds from time 0
-# // how do i put many fixtures together
-# cyc.start(cycleblue)
-# grand.si(0)
-# clock.stop(0)
-# // todo
-# // dmx output monitor
-# // patch chart integrated into dmx output
-# // timeline editor
-# // grand master
-# osc support
-previousMousePosition = (None, None)
-
-
-# def on_move(x, y):
-#     global previousMousePosition
-#     previousX, previousY = previousMousePosition
-#     direction = []
-#     if x > previousX:
-#         direction.append('right')
-#     elif x < previousX:
-#         direction.append('left')
-#     if y > previousY:
-#         direction.append('down')
-#     elif y < previousY:
-#         direction.append('up')
-#     print(f'Pointer moved {" and ".join(direction)}')
-#     previousMousePosition = (x, y)
-
-
-# def on_click(*args):
-#     return False
-
 
 @eel.expose
 def init_listen_to_movement(startingPosition=[50, 50], channel=1):
@@ -1114,15 +1029,6 @@ def init_listen_to_movement(startingPosition=[50, 50], channel=1):
         return new_x, new_y
     mouse.hook(listen_to_movement)
     return
-
-# listener = mouse.Listener(
-#     on_move=on_move,
-#     on_click=on_click
-# )
-
-# previousMousePosition = mouse.Controller().position
-# listener.start()
-
 
 aliases = {
     'on': [set_intensity, DEFAULT_ON_INTENSITY],
