@@ -38,6 +38,7 @@ VERBOSE = args.verbose
 
 # DEFAULTS
 
+
 class default():
     on_intensity = 100
     off_intensity = 0
@@ -47,6 +48,7 @@ class default():
 
 # HARDWARE
 
+
 class DMXSender():
     '''
     Attributes:
@@ -54,6 +56,12 @@ class DMXSender():
         output (dict): copy of buffer showing DMX state
         raw_state (dict): dictionary of current DMX without effects written in
     '''
+    curves = {
+        'linear': lambda delta, start, end, duration: int(start + (end - start) * delta / duration) if duration > 0 else int(end),
+        'delay': lambda delta, start, end, duration: int(end) if delta >= duration else None,
+        'sine': lambda delta, start, end, duration: int(start + (end - start) * delta / duration) if duration > 0 else int(end),
+        # TODO: [FIX] conversion to sine
+    }
 
     def __init__(self):
         self.buffer = {}
@@ -66,11 +74,18 @@ class DMXSender():
     def update_buffer(self, new_values):
         '''
         Args:
-            new_values (dict): DMX values to be put into the buffer
+            new_values (dict): DMX values to be put into the buffer to be written ie. raw + effects
         '''
         self.buffer.update(new_values)
         self.output.update(new_values)
         return
+
+    def update_raw(self, new_values):
+        '''
+        Args:
+            new_values (dict): raw calculated DMX values to be stored without effects
+        '''
+        self.raw_state.update(new_values)
 
     def send_dmx(self, Hz=44):
         '''
@@ -98,17 +113,63 @@ class DMXSender():
         self.sender.start()
         return
 
-    def fade(self, arguments):
+    def fade(self, *fade_arguments, effects=None):
+        # TODO: [EFFECT]
         '''
         Uses arguments to write to buffer.
 
         Args:
-            []
+            Args (list): [channel, end, duration, curve] eg. (1, 255, 2, 'linear')
+            Note: LTP. args at end will take priority
+            Note: effects: (channel, amplitude, start, horizontal shift, frequency)
         '''
         # TODO: refactor
+        # Calculate channel start
+        # ie. arg => (channel, start, end, duration, curve)
+        argument_q = [(channel, self.raw_state.get(channel, 0), end, duration, curve)
+                      for (channel, end, duration, curve) in fade_arguments]
+        # Run loop and calculate new values
+        start = time.perf_counter()
+        bounds = {channel: (start, end) for (
+            channel, start, end, *_) in argument_q}  # subject to LTP
+        max_duration = max(
+            [duration for (_, _, duration, _c) in fade_arguments])
+        while True:
+            # TODO: [ALT] investigate if generating lists of commands with popping the DMX buffer is more fast
+            delta_time = time.perf_counter() - start
+            new_values = {channel: value for (channel, start, end, duration, curve) in argument_q
+                          if ((value := self.curves[curve](delta_time, start, end, duration)))}
+            self.update_raw(new_values)
+            # Add on effects
+            # HELP: effect parameters = []
+            effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
+             for channel, () in effected_values.items()}
+            self.update_buffer(new_values.update(effected_values))
+            remaining_channels = {channel: value for (channel, value) in new_values.items()
+                                  if (bounds[channel][1] - bounds[channel][0]) * (value - bounds[channel][1]) < 0}
+            if len(remaining_channels) == 0 and delta_time > max_duration: break
         return
 
     def start_timecode(cuelist, cue_number=0):
+        # Identify all cues with timecode
+        ## {timing: cue_number}
+        # NOTE: dict used to look for latest cue only
+        timecode_cues = {
+            cue.timing: cue_number
+            for cue_number, cue in enumerate(Show.cuelists[cuelist])
+            if isinstance(cue.timing, (float, int))
+        }
+        # Sort all timecodes
+        timecode_list = [item for item in timecode_cues.items()]
+        timecode_list.sort(key=lambda cue: cue[0])
+        # Extract timings and cues
+        timings = [timing for timing, *_ in timecode_list]
+        cues = [cue for _, cue in timecode_list]
+
+        def run_timecode(cuelist, cue_number):
+            current_timing = Show.cuelists[cuelist][cue_number].timing
+            start = time.time() - current_timing
+            # TODO: [TIMECODE] how to handle run_timecode if started on a manual cue
         return
 
 
@@ -222,11 +283,12 @@ class Palettes():
                 self.palettes[file] = json.load(f)
         return
 
+
 class Programmer():
     FADE_TIME = 0  # TODO: [CONFIG] map to config
     CUELIST_MODE = False
     programmer = {
-        'commands': OrderedDict(), # TODO: [CLEAN] why OrderedDict?
+        'commands': OrderedDict(),  # TODO: [CLEAN] why OrderedDict?
         # 101: {
         #     'intensity': [('command', 100), ('overlapping command', 50)]
         # },
@@ -380,7 +442,9 @@ class Programmer():
         # TODO: [REFACTOR]
         pass
 
-    def record_programmer(self, cuelist):
+    def record_programmer(self, cuelist=None):
+        if cuelist is None:
+            cuelist = Show.selected_cuelist
         Show.cuelists[cuelist].append(
             Cue(
                 name=default.cue_name,
@@ -392,7 +456,7 @@ class Programmer():
                         selection=self.select(instruction.split(' ')[:-1]),
                         value=value,
                         fade_time=default.fade_time,
-                        curve='linear', # TODO: does this take into account programmer?
+                        curve='linear',  # TODO: does this take into account programmer?
                         cuelist_mode=True
                     ) for instruction, value in Programmer.programmer['commands'].items()
                     # TODO: [CLEAN]. Make programmer a Class?
@@ -400,7 +464,8 @@ class Programmer():
             )
         )
         Show.cuelists[cuelist].update_state()
-        if GUI.state: eel.refresh_timeline()
+        if GUI.state:
+            eel.refresh_timeline()
         return
 
     @classmethod
@@ -431,6 +496,7 @@ class Show():
     active_cuelists = {
         # cuelist: cue_number
     }
+    selected_cuelist = ''
 
     def play_cue(self, cuelist, cue_number=False, source='back'):
         # TODO: [REFACTOR]
@@ -445,8 +511,10 @@ class Show():
         # Find what commands have been generated
         commands = self.cuelists[cuelist][cue_number]['commands']
         # Flatten all commands to extract dmx
-        dmx = [arg for _, fade_arguments in commands.items() for arg in fade_arguments]
-        if VERBOSE: print(f'play_cue [+]: {dmx=}')
+        dmx = [arg for _, fade_arguments in commands.items()
+               for arg in fade_arguments]
+        if VERBOSE:
+            print(f'play_cue [+]: {dmx=}')
         DMXSender.fade(*dmx)
         if source == 'back':
             eel.remove_cue_from_selection(cuelist, cue_number)
@@ -485,6 +553,7 @@ class Cuelist():
     def update_state(self):
         state = [None] * 256
         # TODO: [EFFECT] store effect into state somehow
+
         def calculate_state(cue):
             cue.state = state
             for channel, value, *_ in [dmx for command in cue.commands.values() for dmx in command]:
@@ -492,6 +561,7 @@ class Cuelist():
             return cue
         self.cues = list(map(calculate_state), self.cues)
         return
+
 
 class Cue():
     '''
@@ -505,9 +575,10 @@ class Cue():
                 sub_command = 'si 100'
 
     '''
+
     def __init__(self, name=False, desc='', timing='manual'):
         # TODO
-        self.name = name # TODO: config
+        self.name = name  # TODO: config
         self.desc = desc
         self.commands = {
             f'{instruction} {value}': commands_lib[]
@@ -570,13 +641,15 @@ class CMD():
         '''
         raw_args = line.split(' ')
         # Handle quotation marks
+
         def remove_quotes(raw_args):
             args = []
             space_mode = False
             # Analyse each arg and see how many quotation marks are in
             for arg in raw_args:
                 count = arg.count('"')
-                if count == 0: args.append(arg.replace('"', ''))
+                if count == 0:
+                    args.append(arg.replace('"', ''))
                 elif count == 1:
                     if space_mode:
                         args[-1] = ' '.join([args[-1], arg.replace('"', '')])
@@ -584,9 +657,10 @@ class CMD():
                     elif not space_mode:
                         space_mode = True
                         args.append(arg.replace('"', ''))
-                elif count == 2: args.append(arg.replace('"', ''))
+                elif count == 2:
+                    args.append(arg.replace('"', ''))
                 else:
-                    raise Exception # TODO: [EXCEPTIONS]
+                    raise Exception  # TODO: [EXCEPTIONS]
             return args
         args = remove_quotes(raw_args)
         # Handle ranges ie. '>'
@@ -594,10 +668,12 @@ class CMD():
             op_index = args.index('>')
             previous_arg_index = op_index - 1
             following_arg_index = op_index + 1
-            args[previous_arg_index] = ''.join(args[previous_arg_index:following_arg_index + 1])
-            args.pop(op_index) # Pop the operator
-            args.pop(op_index) # Pop the following arg
-        if VERBOSE: print(f'clean_line [+]: {args=}')
+            args[previous_arg_index] = ''.join(
+                args[previous_arg_index:following_arg_index + 1])
+            args.pop(op_index)  # Pop the operator
+            args.pop(op_index)  # Pop the following arg
+        if VERBOSE:
+            print(f'clean_line [+]: {args=}')
         return args
 
     def parse(self, line):
@@ -622,24 +698,31 @@ class CMD():
         # TODO: [REMAKE]
         return
 
-if args.connect: DMXSender.connect()
-if args.gui: GUI.start()
+
+if args.connect:
+    DMXSender.connect()
+if args.gui:
+    GUI.start()
 Palettes.load('groups', 'colours', 'positions')  # TODO: change to config
 
-### EXPOSED FUNCTIONS
+# EXPOSED FUNCTIONS
+
 
 @eel.expose
 def get_palette():
     return Palettes.palettes
 
+
 @eel.expose
 def get_cuelists():
     return Show.cuelists
+
 
 @eel.expose
 def get_programmer():
     # TODO: return a function that deals with this internally
     return Programmer.js_programmer()
+
 
 @eel.expose
 def get_patching():
@@ -648,25 +731,30 @@ def get_patching():
     return {fixture_number: fixture_details + [Patching.fixture_types[fixture_details[0]]['channels']]
             for fixture_number, fixture_details in patching_details.items()}
 
+
 @eel.expose
 def get_active_cuelists():
     return Show.active_cuelists
+
 
 @eel.expose
 def get_selected_cuelist():
     # TODO: [CLEAN]
     return Show.selected_cuelist
 
+
 @eel.expose
 def play_cue(cuelist, cue_number=False, source='back'):
     Show.play_cue(cuelist, cue_number, source)
     return
 
-### DEBUG
+# DEBUG
+
 
 def rl(line):
     CMD.parse(line)
     return
+
 
 def bye():
     try:
@@ -675,11 +763,9 @@ def bye():
     finally:
         exit()
 
+
 _______OLDCODE___________ = None
 # OLD CODE
-
-
-
 
 
 # DATA OBJECTS
@@ -789,7 +875,6 @@ def start_timecode(cuelist, cue_number=0):
 #     return
 
 # palette groups for multiple parameters using function arguments (colour=), stored in
-
 
 
 class PaletteConstructor():
@@ -989,9 +1074,7 @@ def set_effect(selection, value_args, fade=0, curve='linear', verbose=False, cue
     return
 
 
-
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
-
 
 
 @eel.expose
@@ -1030,6 +1113,7 @@ def init_listen_to_movement(startingPosition=[50, 50], channel=1):
     mouse.hook(listen_to_movement)
     return
 
+
 aliases = {
     'on': [set_intensity, DEFAULT_ON_INTENSITY],
     'off': [set_intensity, DEFAULT_OFF_INTENSITY],
@@ -1053,28 +1137,6 @@ def knock(*selection):  # TODO: new programmer structure
         del programmer[selected]
     if GUI_STATE:
         eel.refresh_programmer(programmer)
-    return
-
-
-def record():
-    cue = {
-        'name': DEFAULT_CUE_NAME,
-        'desc': ' ',
-        'commands': {
-            f'{instruction} {value}': commandsDict[(instructionArgs := instruction.split(' '))[-1]][1](
-                selection=select(instructionArgs[:-1]),
-                value=value,
-                fade_time=DEFAULT_FADE_TIME,
-                curve='linear',
-                cuelist_mode=True
-            ) for instruction, value in programmer['commands'].items()
-        },
-        'timing': 'manual',
-    }
-    cuelists[SELECTED_CUELIST].append(cue)
-    calculate_state(SELECTED_CUELIST)
-    if GUI_STATE:
-        eel.refresh_timeline()
     return
 
 
@@ -1212,6 +1274,7 @@ def parse_assignment(string):
             for i in reduce(reduce_function, list(string), '').split(',')]
     return assignmentType, args
 
+
 def import_show_file(show_file):
     return
 
@@ -1299,16 +1362,6 @@ def fade(*instructions, effects=None):  # channel, end, length, curve
         if len(end_checker) == 0 and (deltaTime > max_duration):
             break
     return previous_values
-
-
-
-
-@eel.expose
-def record_programer_to_cuelist(cuelist=None):
-    if cuelist is None:
-        cuelist = SELECTED_CUELIST
-    cuelists[cuelist].append(programmer)
-
 
 # colour fade resource: https://www.sparkfun.com/news/2844
 # HSI resource: https://cc.bingj.com/cache.aspx?q=hsi+to+rgb+for+led&d=4642254276268138&mkt=en-AU&setlang=en-GB&w=uASazgpuZIk_DdvTn7CgRM5S0bT1kRge
