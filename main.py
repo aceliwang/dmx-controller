@@ -142,9 +142,10 @@ class DMXSender():
             self.update_raw(new_values)
             # Add on effects
             # HELP: effect parameters = []
-            effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
-             for channel, () in effected_values.items()}
-            self.update_buffer(new_values.update(effected_values))
+            ### effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
+            ###  for channel, () in effected_values.items()}
+            ### self.update_buffer(new_values.update(effected_values))
+            self.update_buffer(new_values)
             remaining_channels = {channel: value for (channel, value) in new_values.items()
                                   if (bounds[channel][1] - bounds[channel][0]) * (value - bounds[channel][1]) < 0}
             if len(remaining_channels) == 0 and delta_time > max_duration: break
@@ -283,6 +284,9 @@ class Palettes():
                 self.palettes[file] = json.load(f)
         return
 
+    def template(self, value, selection):
+        return
+
 
 class Programmer():
     FADE_TIME = 0  # TODO: [CONFIG] map to config
@@ -299,7 +303,6 @@ class Programmer():
 
     def __init__(self):
         self.selection = []
-        self.selected_cuelist = None
         # TODO: [REFACTOR]
         return
 
@@ -438,9 +441,43 @@ class Programmer():
             Patching.fixture_types[fixture_type]['mapping'][parameter]['channel'] - 1
         return channel
 
-    def track_mouse_move(self, x, y):
+    def start_mouse_tracker(self, primary_position=(100, 100), x_channel=False, y_channel=False):
         # TODO: [REFACTOR]
-        pass
+        # Move mouse to primary position ie. position to be stuck in
+        x0, y0 = primary_position
+        mouse.move(x0, y0)
+        # TODO: CLEAN
+        x_value = DMXSender.raw_state.get(x_channel, 0)
+        y_value = DMXSender.raw_state.get(y_channel, 0)
+        def handle_mouse(evt):
+            # Cancel tracking if click
+            if isinstance(evt, mouse._mouse_event.ButtonEvent):
+                mouse.unhook(handle_mouse)
+            new_x, new_y = mouse.get_position()
+            if not keyboard.is_pressed(42): # if not shift key
+                if new_x > x0:
+                    x_value += 3
+                    direction = 'right'
+                elif new_x < x0:
+                    x_value -= 3
+                    direction = 'left'
+            if not keyboard.is_pressed(29): # if not ctrl key
+                if new_y > y0:
+                    y_value -= 3
+                    direction = 'down'
+                elif new_y < y0:
+                    y_value += 3
+                    direction = 'up'
+            if VERBOSE: print(f'handle_mouse [+]: mouse moved {direction} {new_x=} {x_value=}')
+            mouse.move(x0, y0)
+            fade_arguments = []
+            if x_channel is not False: fade_arguments.append([x_channel, x_value, 0, 'linear'])
+            if y_channel is not False: fade_arguments.append([y_channel, y_value, 0, 'linear'])
+            DMXSender.fade(*fade_arguments)
+            eel.update_node(node, (x_value, y_value))
+            return x_value, y_value
+        mouse.hook(handle_mouse)
+        return
 
     def record_programmer(self, cuelist=None):
         if cuelist is None:
@@ -466,6 +503,13 @@ class Programmer():
         Show.cuelists[cuelist].update_state()
         if GUI.state:
             eel.refresh_timeline()
+        return
+
+    def knock(self, *selection):
+        # TODO: new programmer structure
+        for selected in self.select(selection):
+            del self.programmer[selected]
+        if GUI.state: eel.refresh_programmer(self.js_programmer())
         return
 
     @classmethod
@@ -497,6 +541,10 @@ class Show():
         # cuelist: cue_number
     }
     selected_cuelist = ''
+
+    def import_showfile(self):
+        # TODO: [MAKE]
+        return
 
     def play_cue(self, cuelist, cue_number=False, source='back'):
         # TODO: [REFACTOR]
@@ -677,12 +725,11 @@ class CMD():
         return args
 
     def parse(self, line):
-        if line == '':
-            return
+        if line == '': return
         # Handle line
         args = self.clean_line(line)
         command_list = []
-        command_builder = []  # TODO: what is this for?
+        command_builder = []
         keywords = [self.commands_lib.keys()] + \
             [Palettes.palettes['groups'].keys()]
         for arg in args:
@@ -692,6 +739,9 @@ class CMD():
             command_builder.append(arg)
         command_list.append(command_builder)
         print(f'parse [+]: {command_list=}')
+        # Run commands
+        # If line = assignment
+        if GUI.state and Programmer.programmer: eel.refresh_programmer(Programmer.js_programmer())
         return
 
     def parse_file(file):
@@ -771,10 +821,6 @@ _______OLDCODE___________ = None
 # DATA OBJECTS
 
 selection = []
-patching = {
-    101: [1, 'trimmer par'],
-    102: [9, 'trimmer par']
-}
 cuelists = {
     'mainCueList': [
         {
@@ -1131,15 +1177,6 @@ def select_cuelist(*cuelist):
         eel.refresh_selected_cuelist(SELECTED_CUELIST)
     return
 
-
-def knock(*selection):  # TODO: new programmer structure
-    for selected in select(selection):
-        del programmer[selected]
-    if GUI_STATE:
-        eel.refresh_programmer(programmer)
-    return
-
-
 @eel.expose
 def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
     if line == '':
@@ -1275,15 +1312,8 @@ def parse_assignment(string):
     return assignmentType, args
 
 
-def import_show_file(show_file):
-    return
-
-
 # TODO: delay needs to be fixed
 
-# print(read_line("@100 pars sc red # cue name / when they start dancing"))
-# read_line("101 102 sc blue")
-# commandsDict[command][function](commandsDict[command][args]) # TODO
 
 
 # class group: # groups
@@ -1296,72 +1326,10 @@ def import_show_file(show_file):
 #     def plus(self, fixtures):
 #         self.fixtures += fixtures
 
-# TESTS
-
-
-clean_line('pars si 100')
-select('1', '2', '3>5')
-# setColour(['pars'], 'red', True)
-import_fixture_type('trimmer par')
-findChannel(101, 'red')
-clear()
 # repatch_fixture(101, 103)
 # colour.record('blue', (0, 0, 255), [103])
 
 
-currentDMX = [0] * 256
-
-
-def fade(*instructions, effects=None):  # channel, end, length, curve
-    # instruction = array of tuples.
-    # NOTE: LTP. instructions at the end take priority
-    # each tuple = (channel, end, duration, curve)
-    # eg. (1, 255, 2, 'linear')
-    # NOTE EFFECTS: (channel, amplitude, start, horizontal shift, frequency)
-    # STEP 1: calculate each channel start
-    # ie. tuple => (channel, start, end, duration) eg. (1, 0, 255, 2, 'linear')
-    # instructions = [(1, 255, 2, 'linear'), (1, 0, 2, 'delay')]
-    instruction_q = [(channel, currentDMX[channel], end, duration, curve)
-                     for (channel, end, duration, curve, *others) in instructions]
-    # STEP 2: run loop. calculate new values for each channel according to duration and write
-    curves = {
-        'linear': lambda delta, start, end, duration: int(start + (end - start) * delta / duration) if duration > 0 else int(end),
-        'delay': lambda delta, start, end, duration: int(end) if delta >= duration else None,
-        # TODO: convert to sine
-        'sine': lambda delta, start, end, duration: int(start + (end - start) * delta / duration) if duration > 0 else int(end),
-    }
-    # STEP 2A: calculate new values according to multiple instructions and add these instructions together
-    timer = time.perf_counter()
-    # directions = [int((end - start) / abs(end - start)) for (channel, end, length), start in zip(fadingChannels, currentValues)]
-    # previousValues = [i for i in currentValues]
-    end_values = {channel: (start, end) for (
-        channel, start, end, duration, curve) in instruction_q}  # looks at LTP and order of array
-    max_duration = max([duration for (a, b, duration, c) in instructions])
-    # end_values = {1: 0}
-    # break criteria: if deltaTime >= duration && previous_value <= or >= end_value
-    while True:  # TODO: change to generator function
-        # TODO: when to break out? how to compare to end value
-        # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) < 0, continue
-        # CONTINUE GOING CRITERIA: if (end - start) * (previous - end) >= 0, achieved > remove from comparison. Once all removed from comparison, break?
-        deltaTime = time.perf_counter() - timer
-        # calculate values according to curves
-        new_values = {channel: value
-                      for (channel, start, end, duration, curve) in instruction_q if ((value := curves[curve](deltaTime, start, end, duration)) is not None)}
-        # {1: 255} then {1: 0}
-        effected_values
-        if channel in active_effects:
-            effected_values[channel]
-        DMX_BUFFER.update(new_values)
-        for channel in new_values.keys():
-            currentDMX[channel] = new_values[channel]
-        previous_values = new_values
-        end_checker = {channel: previous_value for (channel, previous_value) in previous_values.items() if (
-            (end_values[channel][1] - end_values[channel][0]) *
-            (previous_value - end_values[channel][1]) < 0
-        )}
-        if len(end_checker) == 0 and (deltaTime > max_duration):
-            break
-    return previous_values
 
 # colour fade resource: https://www.sparkfun.com/news/2844
 # HSI resource: https://cc.bingj.com/cache.aspx?q=hsi+to+rgb+for+led&d=4642254276268138&mkt=en-AU&setlang=en-GB&w=uASazgpuZIk_DdvTn7CgRM5S0bT1kRge
