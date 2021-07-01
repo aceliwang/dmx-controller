@@ -441,6 +441,7 @@ class Programmer():
             Patching.fixture_types[fixture_type]['mapping'][parameter]['channel'] - 1
         return channel
 
+    @classmethod
     def start_mouse_tracker(self, primary_position=(100, 100), x_channel=False, y_channel=False):
         # TODO: [REFACTOR]
         # Move mouse to primary position ie. position to be stuck in
@@ -798,6 +799,11 @@ def play_cue(cuelist, cue_number=False, source='back'):
     Show.play_cue(cuelist, cue_number, source)
     return
 
+@eel.expose
+def start_mouse_tracker(primary_position, x_channel, y_channel):
+    Programmer.start_mouse_tracker(primary_position, x_channel, y_channel)
+    return
+
 # DEBUG
 
 
@@ -1122,42 +1128,6 @@ def set_effect(selection, value_args, fade=0, curve='linear', verbose=False, cue
 
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
 
-
-@eel.expose
-def init_listen_to_movement(startingPosition=[50, 50], channel=1):
-    x_coordinate, y_coordinate = startingPosition
-    mouse.move(x_coordinate, y_coordinate)
-    # new_x = currentDMX[channel]
-    new_x = 22
-    new_y = 0
-
-    def listen_to_movement(event):
-        nonlocal new_x, new_y
-        if isinstance(event, mouse._mouse_event.ButtonEvent):
-            print('buttonevent', listen_to_movement)
-            mouse.unhook(listen_to_movement)
-            # print('unhooked')
-        x, y = mouse.get_position()
-        if not keyboard.is_pressed(42):  # shift key
-            if x > x_coordinate:
-                new_x += 3
-                print('right', x, new_x)
-            elif x < x_coordinate:
-                new_x -= 3
-                print('left', x, new_x)
-        if not keyboard.is_pressed(29):  # ctrl key
-            if y > y_coordinate:
-                new_y -= 3
-                print('down', y, new_y)
-            elif y < y_coordinate:
-                new_y += 3
-                print('up', y, new_y)
-        mouse.move(x_coordinate, y_coordinate)
-        fade([channel, new_y, 0, 'linear'])
-        eel.change_intensity((new_x, new_y))
-        return new_x, new_y
-    mouse.hook(listen_to_movement)
-    return
 
 
 aliases = {
