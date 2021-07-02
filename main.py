@@ -62,6 +62,9 @@ class DMXSender():
         'sine': lambda delta, start, end, duration: int(start + (end - start) * delta / duration) if duration > 0 else int(end),
         # TODO: [FIX] conversion to sine
     }
+    active_effects = {
+        # channel: "time started", parameters
+    }
 
     def __init__(self):
         self.buffer = {}
@@ -142,16 +145,18 @@ class DMXSender():
             self.update_raw(new_values)
             # Add on effects
             # HELP: effect parameters = []
-            ### effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
-            ###  for channel, () in effected_values.items()}
-            ### self.update_buffer(new_values.update(effected_values))
+            # effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
+            # for channel, () in effected_values.items()}
+            # self.update_buffer(new_values.update(effected_values))
             self.update_buffer(new_values)
             remaining_channels = {channel: value for (channel, value) in new_values.items()
                                   if (bounds[channel][1] - bounds[channel][0]) * (value - bounds[channel][1]) < 0}
-            if len(remaining_channels) == 0 and delta_time > max_duration: break
+            if len(remaining_channels) == 0 and delta_time > max_duration:
+                break
         return
 
-    def start_timecode(cuelist, cue_number=0):
+    @classmethod
+    def start_timecode(self, cuelist, cue_number=0):
         # Identify all cues with timecode
         ## {timing: cue_number}
         # NOTE: dict used to look for latest cue only
@@ -171,6 +176,13 @@ class DMXSender():
             current_timing = Show.cuelists[cuelist][cue_number].timing
             start = time.time() - current_timing
             # TODO: [TIMECODE] how to handle run_timecode if started on a manual cue
+            start_index = cues.index(cue_number)
+            for i in range(len(timings[start_index:])):
+                while (time.time() - start) < timings[start_index:][i]:
+                    pass
+                self.play_cue(cuelist, cues[start_index:][i])
+
+        run_timecode(cuelist, cue_number)
         return
 
 
@@ -178,6 +190,7 @@ class Patching():
 
     patching = {}
     fixture_types = {}
+    dmx_to_human = {}  # TODO: implement with patching
 
     def import_patching(self):
         '''
@@ -300,9 +313,9 @@ class Programmer():
         #     'intensity': None
         # }
     }
+    selection = []
 
     def __init__(self):
-        self.selection = []
         # TODO: [REFACTOR]
         return
 
@@ -383,21 +396,35 @@ class Programmer():
             selection (list, int, str): either group, fixture or multiple fixtures
             value (int, str): colour value as HSI, RGB or palette name
         '''
+        #
+        # Functions
+        def search_colour_palette(fixture, value):
+            pal = Palettes.palettes['colours'][value]
+            if fixture in pal['fixture']:
+                return pal['fixture'][fixture]
+            elif (fixture_type := Patching.patching[fixture][0]) in pal['fixture types']:
+                return pal['fixture types'][fixture_type]
+            else:
+                return pal['default']
+
         # Handle value
         if isinstance(value, str):
-            if value in (pal := Palettes.palettes['colours']):
-                value = pal[value]
+            # If in palette
+            if (value := value.lower()) in (pal := Palettes.palettes['colours']):
+                for fixture in Programmer.select(selection):
+                    colour = search_colour_palette(fixture, value)
             else:
                 print(f'set_colour [-]: invalid colour {value}')
         # Check value
-        # Translate value to DMX
+        #
         # Generate fade arguments
         # TODO: refactor
-
+        if VERBOSE:
+            print('set_colour [TODO]')
         if self.CUELIST_MODE:
             return fade_arguments
-        DMXSender.fade(*fade_arguments)
-        return
+        else:
+            DMXSender.fade(*fade_arguments)
 
     def set_position(self, selection, value, fade_time, curve='linear'):
         '''
@@ -450,30 +477,35 @@ class Programmer():
         # TODO: CLEAN
         x_value = DMXSender.raw_state.get(x_channel, 0)
         y_value = DMXSender.raw_state.get(y_channel, 0)
+
         def handle_mouse(evt):
             # Cancel tracking if click
             if isinstance(evt, mouse._mouse_event.ButtonEvent):
                 mouse.unhook(handle_mouse)
             new_x, new_y = mouse.get_position()
-            if not keyboard.is_pressed(42): # if not shift key
+            if not keyboard.is_pressed(42):  # if not shift key
                 if new_x > x0:
                     x_value += 3
                     direction = 'right'
                 elif new_x < x0:
                     x_value -= 3
                     direction = 'left'
-            if not keyboard.is_pressed(29): # if not ctrl key
+            if not keyboard.is_pressed(29):  # if not ctrl key
                 if new_y > y0:
                     y_value -= 3
                     direction = 'down'
                 elif new_y < y0:
                     y_value += 3
                     direction = 'up'
-            if VERBOSE: print(f'handle_mouse [+]: mouse moved {direction} {new_x=} {x_value=}')
+            if VERBOSE:
+                print(
+                    f'handle_mouse [+]: mouse moved {direction} {new_x=} {x_value=}')
             mouse.move(x0, y0)
             fade_arguments = []
-            if x_channel is not False: fade_arguments.append([x_channel, x_value, 0, 'linear'])
-            if y_channel is not False: fade_arguments.append([y_channel, y_value, 0, 'linear'])
+            if x_channel is not False:
+                fade_arguments.append([x_channel, x_value, 0, 'linear'])
+            if y_channel is not False:
+                fade_arguments.append([y_channel, y_value, 0, 'linear'])
             DMXSender.fade(*fade_arguments)
             eel.update_node(node, (x_value, y_value))
             return x_value, y_value
@@ -510,7 +542,8 @@ class Programmer():
         # TODO: new programmer structure
         for selected in self.select(selection):
             del self.programmer[selected]
-        if GUI.state: eel.refresh_programmer(self.js_programmer())
+        if GUI.state:
+            eel.refresh_programmer(self.js_programmer())
         return
 
     @classmethod
@@ -630,7 +663,7 @@ class Cue():
         self.name = name  # TODO: config
         self.desc = desc
         self.commands = {
-            f'{instruction} {value}': commands_lib[]
+            # f'{instruction} {value}': Programmer.commands_lib[]
         }
         self.timing = timing
         self.state = []
@@ -683,14 +716,25 @@ class CMD():
         # 'record': ('meta', record)
     }
 
+    # ALT: change arguments to dictionaries instead
+    aliases = {
+        'on': ['si', default.on_intensity],
+        'off': ['si', default.off_intensity],
+        'clear': ['select', []]
+    }
+
     def clean_line(line):
         # TODO: refactor
         '''
-        Convert line into array with consideration of quotation marks and ranges
+        Convert line into array with consideration of quotation marks and ranges.
+        If there is an '=', this will be put into its separate line
         '''
-        raw_args = line.split(' ')
-        # Handle quotation marks
+        # Handle assignments ie. '='
+        # eg. input: midnight=rgb(1,2,3) -> midnight = rgb(1,2,3)
+        line = line.replace('=', ' = ')
 
+        raw_args = line.split()
+        # Handle quotation marks
         def remove_quotes(raw_args):
             args = []
             space_mode = False
@@ -726,23 +770,121 @@ class CMD():
         return args
 
     def parse(self, line):
-        if line == '': return
+        def alias_parser():
+            # TODO: START
+            return
+
+        if line == '':
+            return
         # Handle line
+        # eg. @20 pars si 100 sc 'red blue' in 2 # name / description
+        # eg. midnight = rgb(0, 0, 0)
         args = self.clean_line(line)
-        command_list = []
-        command_builder = []
-        keywords = [self.commands_lib.keys()] + \
-            [Palettes.palettes['groups'].keys()]
+        # -> [@20, pars, si, 100, sc, red blue, in, 2, #, name, /, description]
+        # -> [midnight, =, rgb]
+        
+        # If line is assignment
+        if '=' in args:
+            index = args.index('=')
+            names = args[:index]
+            values = args[index + 1:]
+            # TODO: parse the assignment
+            if 'rgb' in values or 'hsl' in values or 'pos' in values:
+                parse_assignment(values)
+        
+        # If line is programming
+            # Separate into commands
+        token_list = []
+        # eg. [@20, pars, si 100, sc 'red blue', in 2, # name, / description]
+        token_builder = [] # temporary array to build the above commands
+        keywords = self.commands_lib.keys() + \
+            self.aliases.keys() + \
+            Palettes.palettes['groups'].keys() + \
+            ['in']
+        keyword_starter = ('@', '#', '/')
         for arg in args:
-            if command_builder != [] and arg in keywords:
-                command_list.append(command_builder)
-                command_builder = []
-            command_builder.append(arg)
-        command_list.append(command_builder)
-        print(f'parse [+]: {command_list=}')
+            if token_builder != [] and (arg in keywords or arg[0] in keyword_starter):
+                token_list.append(token_builder)
+                token_builder = []
+            token_builder.append(arg)
+        token_list.append(token_builder)
+        print(f'parse [+]: PROGRAM {token_list=}')
+            # Interpret commands
+        # NOTE: I obviously have to do a temp_cue but what happens if this is going into the programmer?
+        programmer_builder = {
+            'commands': [],
+            'curve': 'linear',
+            'fade_time': default.fade_time
+        } # temp programmer before updating
+        selection_builder = []
+        command_list = []
+        for token in token_list:
+            if token[0][0] == '@': # TIMING
+                programmer_builder['timing'] = int(token[0][1:])
+            elif (start := token[0]) == '#': # NAME
+                programmer_builder['name'] = ' '.join(token[1:])
+            elif start == '/': # DESCRIPTION
+                programmer_builder['description'] = ' '.join(token[1:])
+            elif start.isnumeric(): # FIXTURE NUMBER
+                selection_builder.append(start)
+            elif start in Palettes.palettes['groups']: # GROUP NAME
+                selection_builder.append(start)
+            elif start == 'in': # FADE TIME
+                programmer_builder['fade_time'] = int(token[1])
+            elif start in self.aliases:
+                alias_parser(token)
+            else:
+                command_list.append(token)
+        # If no commands
+        if len(command_list) == 0:
+            # TODO: Do I need to update programmer selection?
+            eel.refresh_selection(Programmer.select(selection_builder))
         # Run commands
-        # If line = assignment
-        if GUI.state and Programmer.programmer: eel.refresh_programmer(Programmer.js_programmer())
+        # If cuelist_mode, save commands to cuelist and don't run
+        # If not cuelist_mode, save commands to programmer and run
+        for action, *values in command_list:
+            command_type, command_function, *other = self.commands_lib[action]
+            value = ' '.join(values)
+            if command_type == 'program':
+                if Programmer.CUELIST_MODE: # if importing
+                    # ALT: use classes
+                    command = ' '.join(selection_builder + [action] + values)
+                    fade_arguments = command_function(
+                        selection=Programmer.select(selection_builder),
+                        value=value,
+                        fade_time=programmer_builder['fade_time'],
+                        curve=programmer_builder['curve']
+                    )
+                    programmer_builder['commands'][command] = fade_arguments
+                else: # if live
+                    # Run command
+                    command_function(
+                        selection=Programmer.select(selection_builder),
+                        value=value,
+                        fade_time=programmer_builder['fade_time'],
+                        curve=programmer_builder['curve']
+                    )
+                    # Update programmer
+                    instruction = ' '.join([selection_builder], [action])
+                    if instruction in Programmer.programmer['commands']:
+                        del Programmer.programmer['commands'][instruction]
+                    Programmer.programmer['commands'][instruction] = value
+                    # ALT [TODO]: convert this to an update?
+                    for fixture in Programmer.select(selection_builder):
+                        parameter = other[0]
+                        if value.isnumeric(): value = int(value)
+                        if fixture not in Programmer.programmer:
+                            Programmer.programmer[fixture] = {}
+                        if parameter not in Programmer.programmer[fixture]:
+                            Programmer.programmer[fixture][parameter] = {}
+                        elif instruction in Programmer.programmer[fixture][parameter]:
+                            del Programmer.programmer[fixture][parameter][instruction]
+                        Programmer.programmer[fixture][parameter][instruction]= value
+            elif command_type == 'meta':
+                command_function(*values)
+        # Run commands
+        if GUI.state and Programmer.programmer:
+            eel.refresh_programmer(Programmer.js_programmer())
         return
 
     def parse_file(file):
@@ -799,6 +941,13 @@ def play_cue(cuelist, cue_number=False, source='back'):
     Show.play_cue(cuelist, cue_number, source)
     return
 
+
+@eel.expose
+def start_timecode(cuelist, cue_number=0):
+    Show.start_timecode(cuelist, cue_number)
+    return
+
+
 @eel.expose
 def start_mouse_tracker(primary_position, x_channel, y_channel):
     Programmer.start_mouse_tracker(primary_position, x_channel, y_channel)
@@ -826,7 +975,6 @@ _______OLDCODE___________ = None
 
 # DATA OBJECTS
 
-selection = []
 cuelists = {
     'mainCueList': [
         {
@@ -871,50 +1019,7 @@ cuelists = {
     ]
 }
 
-# TODO: with patching
-dmx_to_human = {
-    219: [101, 'ON'],
-    225: [101, 'R'],
-}
-
-
 # SHOW STATE
-
-@eel.expose
-def start_timecode(cuelist, cue_number=0):
-    cuelist = 'mainCueList'
-    timecodePrep = {}
-    # for index, cue in enumerate(cuelists[cuelist]):
-    #     # if I want to run multiple cues? I do want to run multiple cues together
-    #     # for index, cue in enumerate(cuelists[list]):
-    #     timing = cue['timing']
-    #     if not isinstance(timing, (float, int)):
-    #         continue
-    #     if timing in timecodePrep:
-    #         timecodePrep[timing].append(index)
-    #     else:
-    #         timecodePrep[timing] = [index]
-    timecodePrep = {cue['timing']: index for index, cue in enumerate(
-        cuelists[cuelist]) if isinstance(cue['timing'], (float, int))}
-    # if time
-    timecodeList = [item for item in timecodePrep.items()]
-    timecodeList.sort(key=lambda x: x[0])
-    timings = [timing for timing, *_ in timecodeList]
-    matchedCues = [cues for _, cues in timecodeList]
-
-    def activate_timecode(cuelist, cue_number):
-        # TORESUME
-        startTime = time.time() - cuelists[cuelist][cue_number]['timing']
-        # cuelist = cuelists[list] if extracting the cuelist
-        startIndex = matchedCues.index(cue_number)
-        for i in range(len(timings[startIndex:])):
-            while (time.time() - startTime) < timings[startIndex:][i]:
-                pass
-            print(f'[PLAYBACK: {cuelist}]: {time.time() - startTime}')
-            play_cue(cuelist, matchedCues[startIndex:][i])
-            # TODO: select the relevant cue on the gui
-    activate_timecode(cuelist, cue_number)
-    return
 
 
 # def play_cue(cue_list_name, cue_number=0):
@@ -1103,38 +1208,7 @@ def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cue
 # command > dmxValues
 
 
-active_effects = {
-
-}
-
-
-def set_effect(selection, value_args, fade=0, curve='linear', verbose=False, cuelist_mode=False):
-    # [selection, parameter, formula, amplitude, absolute/relative, vertical shift, horizontal shift, spread, buddy]
-    formula = {
-        'sine': lambda x, amp, absrel, ver, hor, freq: amp * math.sin(freq * x),
-        'cosine': lambda x: math.cosine(x),
-        'ramp': lambda x: x % 1
-    }
-
-    def effect():
-        return
-    timer = time.perf_counter()
-    while True:
-        deltaTime = time.perf_counter() - timer
-        if CLIENT_CONNECTION_STATUS:
-            dClient.write()
-    return
-
-
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
-
-
-
-aliases = {
-    'on': [set_intensity, DEFAULT_ON_INTENSITY],
-    'off': [set_intensity, DEFAULT_OFF_INTENSITY],
-    'clear': [select, []],
-}
 
 
 def select_cuelist(*cuelist):
@@ -1146,6 +1220,7 @@ def select_cuelist(*cuelist):
     if GUI_STATE:
         eel.refresh_selected_cuelist(SELECTED_CUELIST)
     return
+
 
 @eel.expose
 def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
@@ -1285,7 +1360,6 @@ def parse_assignment(string):
 # TODO: delay needs to be fixed
 
 
-
 # class group: # groups
 #     def __init__(self, name, fixtures):
 #         self.name = name
@@ -1300,7 +1374,6 @@ def parse_assignment(string):
 # colour.record('blue', (0, 0, 255), [103])
 
 
-
 # colour fade resource: https://www.sparkfun.com/news/2844
 # HSI resource: https://cc.bingj.com/cache.aspx?q=hsi+to+rgb+for+led&d=4642254276268138&mkt=en-AU&setlang=en-GB&w=uASazgpuZIk_DdvTn7CgRM5S0bT1kRge
 # HSI resource: https://blog.saikoled.com/post/44677718712/how-to-convert-from-hsi-to-rgb-white
@@ -1313,10 +1386,6 @@ def parse_assignment(string):
 # TODO: rebuild server into python?
 # TODO: calibration for mouse tracking for
 
-
-effectsLib = {
-    1: "time since it started", parameters: hi
-}
 # how to manage state
 
 
