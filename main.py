@@ -45,6 +45,11 @@ class default():
     fade_time = 2
     cue_name = 'Cue'
     # TODO: [CONFIG]
+    effect_size = 100
+    effect_length = 100
+    effect_hoz = 0
+    effect_ver = 0
+    effect_absrel = 'rel'
 
 # HARDWARE
 
@@ -300,8 +305,17 @@ class Palettes():
     def template(self, value, selection):
         return
 
+    def record(self, name, value, selection):
+        return  # TODO
+
 
 class Programmer():
+
+    '''
+    Attributes:
+        CUELIST_MODE: either False or specified as cuelist
+    '''
+
     FADE_TIME = 0  # TODO: [CONFIG] map to config
     CUELIST_MODE = False
     programmer = {
@@ -354,6 +368,19 @@ class Programmer():
                 return [arg]
         return [fixture for i in selection for fixture in translate_or_expand(i)]
 
+    def activate_cuelist_mode(self, cuelist):
+        if cuelist in Show.cuelists:
+            self.CUELIST_MODE = cuelist
+            print(f'active_cuelist_mode [+]: successfully activated')
+            if GUI.state:
+                eel.refresh_selected_cuelist(cuelist)
+        else:
+            # TODO: make new cuelist
+            new_cuelist = Cuelist(name=cuelist)
+            Show.cuelists.append(new_cuelist)
+            print(f'activate_cuelist_mode [-]: cuelist created')
+        return
+
     def set_intensity(self, selection, value, fade_time, curve='linear'):
         '''
         Set intensity of 'selection' to 'value' across 'fade_time'
@@ -396,7 +423,7 @@ class Programmer():
             selection (list, int, str): either group, fixture or multiple fixtures
             value (int, str): colour value as HSI, RGB or palette name
         '''
-        #
+
         # Functions
         def search_colour_palette(fixture, value):
             pal = Palettes.palettes['colours'][value]
@@ -407,24 +434,101 @@ class Programmer():
             else:
                 return pal['default']
 
+        def rgb_to_rgbw(rgb):
+            return rgb
+
+        def hsi_to_rgbw(hsi):
+            # converts HSI to RGBW
+            hue_deg, sat, intensity = hsi
+            hue_deg = hue_deg % 360
+            hue_rad = hue_deg * math.pi / 180
+            sat = max(0, min(sat, 1))
+            intensity = max(0, min(intensity, 1))
+            if hue_deg < 120:
+                cos_h = math.cos(hue_rad)
+                cos_1047_h = math.cos(math.pi / 3 - hue_rad)
+                red = sat * 255 * intensity / 3 * \
+                    (1 + cos_h/cos_1047_h)  # TODO: check fraction
+                green = sat * 255 * intensity / \
+                    3 * (1 + (1 - cos_h/cos_1047_h))
+                blue = 0
+                white = 255 * (1 - sat) * intensity
+            elif hue_deg < 240:
+                hue_rad = hue_rad - math.pi * 2 / 3
+                cos_h = math.cos(hue_rad)
+                cos_1047_h = math.cos(math.pi / 3 - hue_rad)
+                green = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
+                blue = sat * 255 * intensity / 3 * \
+                    (1 + (1 - cos_h/cos_1047_h))
+                red = 0
+                white = 255 * (1 - sat) * intensity
+            else:
+                hue_rad = hue_rad - math.pi * 4 / 3
+                cos_h = math.cos(hue_rad)
+                cos_1047_h = math.cos(math.pi / 3 - hue_rad)
+                blue = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
+                red = sat * 255 * intensity / 3 * \
+                    (1 + (1 - cos_h/cos_1047_h))
+                green = 0
+                white = 255 * (1 - sat) * intensity
+            return [round(i) for i in (red, green, blue, white)]
+
+        # Libs
+        colour_lib = {
+            'r': 'red',
+            'g': 'green',
+            'b': 'blue',
+            'a': 'amber',
+            'w': 'white',
+            'u': 'uv'
+        }
+
         # Handle value
         if isinstance(value, str):
             # If in palette
             if (value := value.lower()) in (pal := Palettes.palettes['colours']):
                 for fixture in Programmer.select(selection):
                     colour = search_colour_palette(fixture, value)
+                    # TODO: translate the colour to fixture colour mapping
             else:
-                print(f'set_colour [-]: invalid colour {value}')
+                try:
+                    CMD.parse_colour(value)  # TODO: new_function
+                except InvalidError:  # TODO: invalid_function
+                    print(f'set_colour [-]: invalid colour {value}')
+        elif isinstance(value, tuple):
+            colour = value
+
         # Check value
         #
         # Generate fade arguments
-        # TODO: refactor
+        def colour_to_fade_argument(colour, colour_type, fixture):
+            return [
+                [
+                    self.find_channel(fixture, colour_lib[colour_name]),
+                    value,
+                    fade_time,
+                    curve
+                ]
+                for colour_name, value in zip(colour_type, colour)
+            ]
+
+        fade_arguments = []
+        for fixture in self.select(selection):
+            fade_arguments.extend(
+                colour_to_fade_argument(
+                    colour=colour,  # TODO: fix this
+                    colour_type=Patching.fixture_types[(
+                        fixture_type := Patching.patching[fixture][0])]['colour_mapping'],
+                    fixture=fixture
+                )
+            )
         if VERBOSE:
             print('set_colour [TODO]')
         if self.CUELIST_MODE:
             return fade_arguments
         else:
             DMXSender.fade(*fade_arguments)
+        return
 
     def set_position(self, selection, value, fade_time, curve='linear'):
         '''
@@ -450,7 +554,31 @@ class Programmer():
         ]
         return
 
-    def find_channel(fixture, parameter):
+    def set_effect(self, selection, effect_var):
+        # TODO: cuelist needs to be changed to [commands, effects=[effects to start]]
+        '''
+        Effect_var (dict):
+            size: amplitude
+            length: wavelength
+            hoz: horizontal shift
+            ver: vertical shift
+            absrel: absolute or relative mode
+        '''
+        size = effect_var.get('size', default.effect_size)
+        length = effect_var.get('length', default.effect_length)
+        hoz = effect_var.get('hoz', default.effect_hoz)
+        ver = effect_var.get('ver', default.effect_ver)
+        absrel = effect_var.get('absrel', default.effect_absrel)
+        # TODO: implement absolute override
+        effects_lib = {
+            'sine': lambda x: size * math.sin(length * x + hoz) + ver,
+            'tangent': lambda x: size * math.tan(length * x + hoz) + ver,
+            'none': lambda x: x
+        }
+        # TODO: clamp value between 0 and 255
+        return
+
+    def find_channel(self, fixture, parameter):
         '''
         Translate parameter to DMX channel
 
@@ -597,6 +725,8 @@ class Show():
                for arg in fade_arguments]
         if VERBOSE:
             print(f'play_cue [+]: {dmx=}')
+        self.update_active(cuelist, cue_number + 1)
+        # TODO: cycle through cuelist
         DMXSender.fade(*dmx)
         if source == 'back':
             eel.remove_cue_from_selection(cuelist, cue_number)
@@ -605,6 +735,22 @@ class Show():
 
     def update_active(self, cuelist, cue_number):
         self.active_cuelists[cuelist] = cue_number
+        return
+
+    def new_cuelist(self, name, cuelist=False):
+        '''
+        Create new cuelist if cuelist does not yet exist
+
+        Args:
+            name (str): name of cuelist
+            cuelist (Cuelist): provided cuelist
+        '''
+        if name not in Show.cuelists:
+            Show.cuelists[name] = cuelist or Cuelist(name=name)
+            print(f'new_cuelist [+]: {name} cuelist created')
+        else:
+            print(f'new_cuelist [-]: {name} already exists')
+        return
 
     def save(self):
         # TODO: [EXPORT]
@@ -706,7 +852,7 @@ class CMD():
         # 'record': None,
         # 'sp': None,
         'patch': ('meta', Patching.patch_fixtures),
-        # 'startcl': ('meta', select_cuelist),
+        'startcl': ('meta', Programmer.activate_cuelist_mode),
         # 'scl': ('meta', select_cuelist),
         'in': None,
         'seti': ('program', Programmer.set_intensity, 'intensity'),
@@ -735,6 +881,7 @@ class CMD():
 
         raw_args = line.split()
         # Handle quotation marks
+
         def remove_quotes(raw_args):
             args = []
             space_mode = False
@@ -782,7 +929,7 @@ class CMD():
         args = self.clean_line(line)
         # -> [@20, pars, si, 100, sc, red blue, in, 2, #, name, /, description]
         # -> [midnight, =, rgb]
-        
+
         # If line is assignment
         if '=' in args:
             index = args.index('=')
@@ -791,12 +938,12 @@ class CMD():
             # TODO: parse the assignment
             if 'rgb' in values or 'hsl' in values or 'pos' in values:
                 parse_assignment(values)
-        
+
         # If line is programming
             # Separate into commands
         token_list = []
         # eg. [@20, pars, si 100, sc 'red blue', in 2, # name, / description]
-        token_builder = [] # temporary array to build the above commands
+        token_builder = []  # temporary array to build the above commands
         keywords = self.commands_lib.keys() + \
             self.aliases.keys() + \
             Palettes.palettes['groups'].keys() + \
@@ -809,27 +956,27 @@ class CMD():
             token_builder.append(arg)
         token_list.append(token_builder)
         print(f'parse [+]: PROGRAM {token_list=}')
-            # Interpret commands
+        # Interpret commands
         # NOTE: I obviously have to do a temp_cue but what happens if this is going into the programmer?
         programmer_builder = {
             'commands': [],
             'curve': 'linear',
             'fade_time': default.fade_time
-        } # temp programmer before updating
+        }  # temp programmer before updating
         selection_builder = []
         command_list = []
         for token in token_list:
-            if token[0][0] == '@': # TIMING
+            if token[0][0] == '@':  # TIMING
                 programmer_builder['timing'] = int(token[0][1:])
-            elif (start := token[0]) == '#': # NAME
+            elif (start := token[0]) == '#':  # NAME
                 programmer_builder['name'] = ' '.join(token[1:])
-            elif start == '/': # DESCRIPTION
+            elif start == '/':  # DESCRIPTION
                 programmer_builder['description'] = ' '.join(token[1:])
-            elif start.isnumeric(): # FIXTURE NUMBER
+            elif start.isnumeric():  # FIXTURE NUMBER
                 selection_builder.append(start)
-            elif start in Palettes.palettes['groups']: # GROUP NAME
+            elif start in Palettes.palettes['groups']:  # GROUP NAME
                 selection_builder.append(start)
-            elif start == 'in': # FADE TIME
+            elif start == 'in':  # FADE TIME
                 programmer_builder['fade_time'] = int(token[1])
             elif start in self.aliases:
                 alias_parser(token)
@@ -846,7 +993,7 @@ class CMD():
             command_type, command_function, *other = self.commands_lib[action]
             value = ' '.join(values)
             if command_type == 'program':
-                if Programmer.CUELIST_MODE: # if importing
+                if Programmer.CUELIST_MODE:  # if importing
                     # ALT: use classes
                     command = ' '.join(selection_builder + [action] + values)
                     fade_arguments = command_function(
@@ -856,7 +1003,7 @@ class CMD():
                         curve=programmer_builder['curve']
                     )
                     programmer_builder['commands'][command] = fade_arguments
-                else: # if live
+                else:  # if live
                     # Run command
                     command_function(
                         selection=Programmer.select(selection_builder),
@@ -872,14 +1019,15 @@ class CMD():
                     # ALT [TODO]: convert this to an update?
                     for fixture in Programmer.select(selection_builder):
                         parameter = other[0]
-                        if value.isnumeric(): value = int(value)
+                        if value.isnumeric():
+                            value = int(value)
                         if fixture not in Programmer.programmer:
                             Programmer.programmer[fixture] = {}
                         if parameter not in Programmer.programmer[fixture]:
                             Programmer.programmer[fixture][parameter] = {}
                         elif instruction in Programmer.programmer[fixture][parameter]:
                             del Programmer.programmer[fixture][parameter][instruction]
-                        Programmer.programmer[fixture][parameter][instruction]= value
+                        Programmer.programmer[fixture][parameter][instruction] = value
             elif command_type == 'meta':
                 command_function(*values)
         # Run commands
@@ -969,128 +1117,58 @@ def bye():
         exit()
 
 
+showcase = Cuelist()
+showcase.new_cue(
+    Cue(
+        name='beat',
+        desc='pars flash',
+        timing=0.0,
+        commands={
+            'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
+            'effects': []
+        }
+    )
+)
+showcase.new_cue(
+    Cue(
+        name='beat',
+        desc='pars flash',
+        timing=1.0,
+        commands={
+            'pars off': [[1, 0, 0, 'linear'], [9, 0, 0, 'linear']],
+            'effects': []
+        }
+    )
+)
+showcase.new_cue(
+    Cue(
+        name='beat',
+        desc='pars flash',
+        timing=2.0,
+        commands={
+            'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
+            'effects': []
+        }
+    )
+)
+showcase.new_cue(
+    Cue(
+        name='beat',
+        desc='pars flash',
+        timing=3.0,
+        commands={
+             'pars off': [[1, 128, 0, 'linear']]
+        }
+    )
+)
+Show.new_cuelist('showcase', cuelist=showcase)
+
+
 _______OLDCODE___________ = None
 # OLD CODE
 
 
-# DATA OBJECTS
-
-cuelists = {
-    'mainCueList': [
-        {
-            'name': 'beat',
-            'desc': 'pars flash',
-            'timing': 0.0,  # or timecode or follow
-            'commands': {
-                'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
-                'effects': []
-            },
-            # put in cumulative values of beforehand
-            'state': [None, None, None]
-        },
-        {
-            'name': 'beat',
-            'desc': 'pars flash',  # how to get flashes working?????
-            'timing': 1.0,
-            'commands': {
-                'pars off': [[1, 0, 0, 'linear'], [9, 0, 0, 'linear']]
-            },
-            'state': [None, None, None]
-        },
-        {
-            'name': 'beat',
-            'desc': 'pars flash',
-            'timing': 2.0,  # or timecode or follow
-            'commands': {
-                'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']]
-            },
-            # put in cumulative values of beforehand
-            'state': [None, None, None]
-        },
-        {
-            'name': 'beat',
-            'desc': 'pars flash',  # how to get flashes working?????
-            'timing': 'manual',
-            'commands': {
-                'pars off': [[1, 128, 0, 'linear']]
-            },
-            'state': [None, None, None]
-        },
-    ]
-}
-
-# SHOW STATE
-
-
-# def play_cue(cue_list_name, cue_number=0):
-#     if cue_list_name in ACTIVE_CUELISTS:
-#         if cuelists[cue_list_name][cue_number]['timing'] == 0:
-#             # start_timecode()
-#             pass
-#         fade(cuelists[cue_list_name][cue_number]['dmx'])
-#         ACTIVE_CUELISTS[cue_list_name] = cue_number + 1
-#     return
-
 # palette groups for multiple parameters using function arguments (colour=), stored in
-
-
-class PaletteConstructor():
-    global p
-
-    def __init__(self, paletteType):
-        self.type = paletteType
-
-    def palette_template(self, value, selection):
-        palette = {
-            'default': ['default'],
-            'fixture types': {},
-            'fixtures': {}
-        }
-        for fixture in selection:
-            fixtureType = patching[fixture][1]
-            if isinstance(fixture, int):
-                palette['fixtures'][fixture] = value
-            if isinstance(fixture, str):
-                palette['fixture types'][fixtureType] = value
-        return palette
-
-    def verifyValue(self, value):
-        if self.type == 'colour':
-            return isinstance(value, tuple) and all([index < 5 and channelValue >= 0 and channelValue <= 255 for index, channelValue in enumerate(value)])
-
-    def verifySelection(self, selection):
-        selection = select(selection)
-        return all([fixture in patching.keys() for fixture in selection])
-
-    def record(self, name, value, selection):
-        if self.verifyValue(value) and self.verifySelection(selection):
-            # p[f'{self.type}s'][name] = value
-            p[f'{self.type}s'][name] = self.palette_template(value, selection)
-        eel.populateGroups()
-
-    def rename(self, oldName, newName):
-        return
-
-    def __str__(self):
-        return f'{self.type} constructor'
-
-    def show(self):
-        def iterdict(dict):
-            for key, value in dict.items():
-                if isinstance(value, dict):
-                    iterdict(value)
-                else:
-                    print(f'{prefix}')
-            return
-        prefix = ''
-        for key in p[self.type]:
-            print(f'{key}')
-
-
-colour = PaletteConstructor('colours')
-position = PaletteConstructor('position')
-beam = PaletteConstructor('beam')
-custom = PaletteConstructor('custom')
 
 
 def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cuelist_mode=False):
@@ -1204,135 +1282,8 @@ def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cue
         fade(*fade_arguments)
     return fade_arguments
 
-# command > dmxValues ie. program DMX > cueList
-# command > dmxValues
-
 
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
-
-
-def select_cuelist(*cuelist):
-    cuelist = cuelist[0]
-    if cuelist not in cuelists:
-        cuelists[cuelist] = []  # TODO: change to a dictionary
-    global SELECTED_CUELIST
-    SELECTED_CUELIST = cuelist
-    if GUI_STATE:
-        eel.refresh_selected_cuelist(SELECTED_CUELIST)
-    return
-
-
-@eel.expose
-def read_line(line, cuelist=None, groupNames=["macs", "pars"]):
-    if line == '':
-        return
-    cuelist = SELECTED_CUELIST
-
-    args = clean_line(line)
-    # split into commands and arguments
-    command_list = []
-    temp_commands = []
-    for arg in args:  # if
-        if temp_commands != [] and (arg in commandsDict.keys() or
-                                    arg[0] in ('@', '#', '/') or
-                                    arg in groupNames or
-                                    arg in ('in') or
-                                    arg in aliases.keys()):
-            command_list.append(temp_commands)
-            temp_commands = []
-        temp_commands.append(arg)
-    command_list.append(temp_commands)
-    print(f'read_line command list: {command_list}')
-
-    ###
-    # perform commands
-    cue = {
-        'commands': {},
-        'fadeTime': 0,
-        'timing': 'manual',
-    }
-    selection = []
-    temp_commands = []
-    if '=' in command_list:  # assignment line
-        index = command.index('=')
-        before_args = command[:index]  # name
-        after_args = command[index+1:]  # assignments
-        if 'rgb' in after_args or 'hsl' in after_args:  # colour
-            parse_assignment(after_args)
-        elif 'pos' in after_args:
-            parse_assignment(after_args)
-        else:
-            parse_assignment(after_args)
-    for command in command_list:  # cue line
-        if command[0][0] == '@':
-            cue['timing'] = int(command[0][1:])  # if timing
-        # needs to figure out how to do a selection
-        elif (start := command[0]) == '#':
-            cue['name'] = ' '.join(command[1:])  # if cue name
-        elif start == '/':
-            cue['description'] = ' '.join(command[1:])  # if cue description
-        elif start in groupNames:
-            selection.append(start)  # if group selection
-        elif start.isnumeric():
-            selection.append(start)  # if fixture selection
-        elif start == 'in':
-            cue['fadeTime'] = int(command[1])  # if fade time
-        elif start in aliases.keys():
-            do = aliases[start]
-            dmx = do[0](select(selection), do[1:])
-            temp_commands.append(command)
-        else:  # if command
-            temp_commands.append(command)
-    print(f'read_line selected cuelist: {cuelist}')
-    if len(temp_commands) == 0:
-        eel.refresh_selection(select(selection))
-    for command in temp_commands:
-        if (command_type := commandsDict[command[0]][0]) == 'program':
-            if cuelist:
-                cue['commands'][' '.join(selection + command)] = commandsDict[command[0]][1](
-                    selection=select(selection),
-                    value=command[1],
-                    fade_time=cue['fadeTime'],
-                    curve='linear',
-                    cuelist_mode=True
-                )
-                del cue['fadeTime']
-                cuelists[SELECTED_CUELIST].append(cue)
-                calculate_state(SELECTED_CUELIST)
-            else:
-                commandsDict[command[0]][1](
-                    selection=select(selection),
-                    value=command[1],
-                    fade_time=cue['fadeTime'],
-                    curve='linear',
-                    cuelist_mode=False
-                )
-            if GUI_STATE and not BLIND_STATUS:
-                eel.refresh_timeline()
-            instruction = ' '.join(selection + [command[0]])
-            value = command[1]
-            if instruction in programmer['commands']:
-                # change insertion order
-                del programmer['commands'][instruction]
-            programmer['commands'][instruction] = value
-            for fixture in select(selection):  # save into programmer: visualise
-                parameter = commandsDict[command[0]][2]
-                value = int(
-                    command[1]) if command[1].isnumeric() else command[1]
-                if fixture not in programmer:
-                    programmer[fixture] = {}
-                if parameter not in programmer[fixture]:
-                    programmer[fixture][parameter] = OrderedDict()
-                elif instruction in programmer[fixture][parameter]:
-                    del programmer[fixture][parameter][instruction]
-                programmer[fixture][parameter][instruction] = value
-        elif command_type == 'meta':
-            commandsDict[command[0]][1](*command[1:])
-    if GUI_STATE and programmer:
-        eel.refresh_programmer(wrap_programmer(programmer))
-    # print(f'read_line cue package: {cue}')
-    # return a cue: {timing, fadeTime, name} and temp commands [macs si 25] [macs sp home]
-    return cue
 
 
 def parse_assignment(string):
@@ -1393,17 +1344,3 @@ def in_fade():
     if channel in effectsLib:
         modifier = effect(channel, size, )
         return original_value + modifier
-
-
-# cuelist = [commands, effects=[to start]]
-def effect(channel, lib, parameters):
-
-    # if relative: apply to fade value?
-    # TODO: if absolute: override fade value?
-    # tbh this should all be in a generator function with fade
-    def sine(x): return size * math.sin(length * x + hoz) + ver
-    def tangent(x): return size * math.tan(length * x + hoz) + ver
-    def none(x): return x
-    # x is the time value since start of the effect
-    # TODO: clamp value between 0 and 255
-    return
