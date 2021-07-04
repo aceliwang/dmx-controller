@@ -69,14 +69,16 @@ class DMXSender():
     }
     active_effects = {
         # channel: "time started", parameters
+        # 1: "time started", parameters
     }
+    # TODO: change below to instance attributes if implementing multiple output devices
+    buffer = {}
+    output = {}
+    raw_state = {}
+    client = DMXClient('PODU')
+    CONNECTION_STATUS = False
 
     def __init__(self):
-        self.buffer = {}
-        self.output = {}
-        self.raw_state = {}
-        self.client = DMXClient('PODU')
-        self.CONNECTION_STATUS = False
         return
 
     def update_buffer(self, new_values):
@@ -94,6 +96,7 @@ class DMXSender():
             new_values (dict): raw calculated DMX values to be stored without effects
         '''
         self.raw_state.update(new_values)
+        return
 
     def send_dmx(self, Hz=44):
         '''
@@ -106,22 +109,40 @@ class DMXSender():
             next_frame = start + counter / Hz
             while time.time() < next_frame:
                 pass
+            if bool(self.active_effects):
+                self.run_effects(self, time.time())
             if bool(self.buffer):
                 self.client.write(self.buffer)
                 self.buffer = {}
             counter += 1
+        return
 
+    @classmethod
     def connect(self):
         '''
         Connect to client device. Updates connection_status.
         '''
         self.client.connect()
         self.CONNECTION_STATUS = True
-        self.sender = threading.Thread(target=self.send_dmx)
+        self.sender = threading.Thread(target=self.send_dmx, args=[self])
         self.sender.start()
         return
 
-    def fade(self, *fade_arguments, effects=None):
+    def run_effects(self, start):
+        '''
+        Args:
+            effects (dict): (channel: start, parameters)
+            Note: parameters = size, wavelength, hoz, ver shift, abs/rel
+        '''
+        # Supplied effects
+        effected_values = {channel: Programmer.effect(self.raw_state.get(channel, 0), time=self.active_effects[channel][0], start=start, parameters=self.active_effects[channel][1])
+                               for channel in self.active_effects}
+        print(effected_values)
+        self.update_buffer(self, effected_values)
+        return
+
+    @classmethod
+    def fade(self, *fade_arguments, effects={}):
         # TODO: [EFFECT]
         '''
         Uses arguments to write to buffer.
@@ -129,7 +150,7 @@ class DMXSender():
         Args:
             Args (list): [channel, end, duration, curve] eg. (1, 255, 2, 'linear')
             Note: LTP. args at end will take priority
-            Note: effects: (channel, amplitude, start, horizontal shift, frequency)
+            
         '''
         # TODO: refactor
         # Calculate channel start
@@ -142,52 +163,22 @@ class DMXSender():
             channel, start, end, *_) in argument_q}  # subject to LTP
         max_duration = max(
             [duration for (_, _, duration, _c) in fade_arguments])
+        # Add effects to active effects
+        effects = {channel: (start, parameters)
+                   for channel, parameters in effects.items()}
+        self.active_effects.update(effects)
+
         while True:
             # TODO: [ALT] investigate if generating lists of commands with popping the DMX buffer is more fast
             delta_time = time.perf_counter() - start
             new_values = {channel: value for (channel, start, end, duration, curve) in argument_q
-                          if ((value := self.curves[curve](delta_time, start, end, duration)))}
-            self.update_raw(new_values)
-            # Add on effects
-            # HELP: effect parameters = []
-            # effected_values = {channel: Effect.effect(value, prop, form, size, wlength, hoz, ver)
-            # for channel, () in effected_values.items()}
-            # self.update_buffer(new_values.update(effected_values))
-            self.update_buffer(new_values)
+                          if ((value := self.curves[curve](delta_time, start, end, duration)) is not None)}
+            self.update_raw(self, new_values)
+            self.update_buffer(self, new_values)
             remaining_channels = {channel: value for (channel, value) in new_values.items()
                                   if (bounds[channel][1] - bounds[channel][0]) * (value - bounds[channel][1]) < 0}
             if len(remaining_channels) == 0 and delta_time > max_duration:
                 break
-        return
-
-    @classmethod
-    def start_timecode(self, cuelist, cue_number=0):
-        # Identify all cues with timecode
-        ## {timing: cue_number}
-        # NOTE: dict used to look for latest cue only
-        timecode_cues = {
-            cue.timing: cue_number
-            for cue_number, cue in enumerate(Show.cuelists[cuelist])
-            if isinstance(cue.timing, (float, int))
-        }
-        # Sort all timecodes
-        timecode_list = [item for item in timecode_cues.items()]
-        timecode_list.sort(key=lambda cue: cue[0])
-        # Extract timings and cues
-        timings = [timing for timing, *_ in timecode_list]
-        cues = [cue for _, cue in timecode_list]
-
-        def run_timecode(cuelist, cue_number):
-            current_timing = Show.cuelists[cuelist][cue_number].timing
-            start = time.time() - current_timing
-            # TODO: [TIMECODE] how to handle run_timecode if started on a manual cue
-            start_index = cues.index(cue_number)
-            for i in range(len(timings[start_index:])):
-                while (time.time() - start) < timings[start_index:][i]:
-                    pass
-                self.play_cue(cuelist, cues[start_index:][i])
-
-        run_timecode(cuelist, cue_number)
         return
 
 
@@ -204,24 +195,27 @@ class Patching():
         # TODO: [IMPORT] new_function
         return
 
+    @classmethod
     def import_fixture_type(self, *fixture_types):
         for fixture_type in fixture_types:
-            if fixture_type in fixture_types:
+            if fixture_type in self.fixture_types:
                 # TODO: provide override or skip function
                 continue
             with open(f'{fixture_type}.json', 'r') as f:
-                fixture_types[fixture_type] = json.load(f)
+                self.fixture_types[fixture_type] = json.load(f)
             print(f'import_fixture_type [+]: {fixture_type} imported')
         return
 
+    @classmethod
     def map_patching(self):
         channel_assignment = [-1] + [0] * 512
         # ALT: change to a reduce function
         for _, (address, fixture_type) in self.patching.items():
             for channel in range(address, address + self.fixture_types[fixture_type]['channel']):
                 channel_assignment[channel] += 1
-            return channel_assignment
+        return channel_assignment
 
+    @classmethod
     def patch_fixtures(self, fixture_type, fixture_no, quantity, address=None, gap=0):
         '''
         Args:
@@ -368,6 +362,9 @@ class Programmer():
                 return [arg]
         return [fixture for i in selection for fixture in translate_or_expand(i)]
 
+    def clamp(value):
+        return max(min(255, round(value)), 0)
+
     def activate_cuelist_mode(self, cuelist):
         if cuelist in Show.cuelists:
             self.CUELIST_MODE = cuelist
@@ -381,6 +378,7 @@ class Programmer():
             print(f'activate_cuelist_mode [-]: cuelist created')
         return
 
+    @classmethod
     def set_intensity(self, selection, value, fade_time, curve='linear'):
         '''
         Set intensity of 'selection' to 'value' across 'fade_time'
@@ -406,7 +404,7 @@ class Programmer():
         dmx_value = math.ceil((value / 100) * 255)
         # Generate fade arguments
         fade_arguments = [
-            [self.find_channel(fixture, 'intensity'),
+            [self.find_channel(self, fixture, 'intensity'),
              dmx_value, fade_time, curve]
             for fixture in self.select(selection)
         ]
@@ -415,6 +413,7 @@ class Programmer():
         DMXSender.fade(*fade_arguments)
         return
 
+    @classmethod
     def set_colour(self, selection, value, fade_time, curve='sine'):
         '''
         Set colour of 'selection' to 'value' across 'fade_time'
@@ -427,9 +426,9 @@ class Programmer():
         # Functions
         def search_colour_palette(fixture, value):
             pal = Palettes.palettes['colours'][value]
-            if fixture in pal['fixture']:
+            if fixture in pal.get('fixture', []):
                 return pal['fixture'][fixture]
-            elif (fixture_type := Patching.patching[fixture][0]) in pal['fixture types']:
+            elif (fixture_type := Patching.patching[fixture][0]) in pal.get('fixture types', []):
                 return pal['fixture types'][fixture_type]
             else:
                 return pal['default']
@@ -471,7 +470,7 @@ class Programmer():
                     (1 + (1 - cos_h/cos_1047_h))
                 green = 0
                 white = 255 * (1 - sat) * intensity
-            return [round(i) for i in (red, green, blue, white)]
+            return [self.clamp(i) for i in (red, green, blue, white)]
 
         # Libs
         colour_lib = {
@@ -504,7 +503,7 @@ class Programmer():
         def colour_to_fade_argument(colour, colour_type, fixture):
             return [
                 [
-                    self.find_channel(fixture, colour_lib[colour_name]),
+                    self.find_channel(self, fixture, colour_lib[colour_name]),
                     value,
                     fade_time,
                     curve
@@ -530,6 +529,7 @@ class Programmer():
             DMXSender.fade(*fade_arguments)
         return
 
+    @classmethod
     def set_position(self, selection, value, fade_time, curve='linear'):
         '''
         Set position of 'selection' to 'value' across 'fade_time'
@@ -541,6 +541,7 @@ class Programmer():
         # TODO: [POSITION]
         return
 
+    @classmethod
     def set_parameter(self, selection, parameter, value, fade_time, curve='linear'):
         '''
         Example: set(pars, intensity, 100)
@@ -554,29 +555,34 @@ class Programmer():
         ]
         return
 
-    def set_effect(self, selection, effect_var):
+    @classmethod
+    def effect(self, value, time, start, parameters={}):
         # TODO: cuelist needs to be changed to [commands, effects=[effects to start]]
         '''
         Effect_var (dict):
+            form: waveform/effect
             size: amplitude
             length: wavelength
             hoz: horizontal shift
             ver: vertical shift
             absrel: absolute or relative mode
         '''
-        size = effect_var.get('size', default.effect_size)
-        length = effect_var.get('length', default.effect_length)
-        hoz = effect_var.get('hoz', default.effect_hoz)
-        ver = effect_var.get('ver', default.effect_ver)
-        absrel = effect_var.get('absrel', default.effect_absrel)
+        form = parameters.get('form')
+        size = parameters.get('size', default.effect_size)
+        length = parameters.get('length', default.effect_length)
+        hoz = parameters.get('hoz', default.effect_hoz)
+        ver = parameters.get('ver', default.effect_ver)
+        absrel = parameters.get('absrel', default.effect_absrel)
         # TODO: implement absolute override
         effects_lib = {
             'sine': lambda x: size * math.sin(length * x + hoz) + ver,
             'tangent': lambda x: size * math.tan(length * x + hoz) + ver,
             'none': lambda x: x
         }
-        # TODO: clamp value between 0 and 255
-        return
+        # TODO: Delete below for cleaning
+        # for i in range(100, 200):            
+        #     print(Programmer.effect(125, i/100, {'form': 'sine'}))
+        return self.clamp(value + effects_lib[form](time - start))
 
     def find_channel(self, fixture, parameter):
         '''
@@ -588,9 +594,9 @@ class Programmer():
         '''
         # Handle fixture
         if isinstance(fixture, (tuple, list)):
-            address, fixture_type = fixture
+            fixture_type, address = fixture
         else:
-            address, fixture_type = Patching.patching[int(fixture)]
+            fixture_type, address = Patching.patching[int(fixture)]
         # Find channel
         channel = address + \
             Patching.fixture_types[fixture_type]['mapping'][parameter]['channel'] - 1
@@ -682,7 +688,7 @@ class Programmer():
         # TODO: [CLEAN] figure out if this is really needed. Do I need the order?
         def arrayed(x):
             if isinstance(x, dict):
-                return {parameter: list(value_dict.items()) for parameter, value_dict in x.items()}
+                return {parameter: (list(value_dict.items()) if isinstance(value_dict, dict) else value_dict) for parameter, value_dict in x.items()}
             else:
                 return x
         js_programmer = {
@@ -708,35 +714,70 @@ class Show():
         # TODO: [MAKE]
         return
 
+    @classmethod
     def play_cue(self, cuelist, cue_number=False, source='back'):
         # TODO: [REFACTOR]
         # Handle cue number
-        if not cue_number:
+        if cue_number is False:
             if cuelist in self.active_cuelists:
                 cue_number = self.active_cuelists[cuelist]
             else:
                 cue_number = 0
         # Update active_cuelists
-        self.update_active(cuelist, cue_number)
+        self.update_active(self, cuelist, cue_number)
         # Find what commands have been generated
-        commands = self.cuelists[cuelist][cue_number]['commands']
+        commands = self.cuelists[cuelist].cues[cue_number].commands
         # Flatten all commands to extract dmx
         dmx = [arg for _, fade_arguments in commands.items()
                for arg in fade_arguments]
+        # Find what effects are to be generated
+        effects = self.cuelists[cuelist].cues[cue_number].effects
         if VERBOSE:
-            print(f'play_cue [+]: {dmx=}')
-        self.update_active(cuelist, cue_number + 1)
+            print(f'play_cue [+]: {dmx=} {effects=}')
+        self.update_active(self, cuelist, cue_number + 1)
         # TODO: cycle through cuelist
-        DMXSender.fade(*dmx)
-        if source == 'back':
+        DMXSender.fade(*dmx, effects=effects)
+        if GUI.state:
             eel.remove_cue_from_selection(cuelist, cue_number)
             eel.add_cue_to_selection(cuelist, cue_number + 1)
+        return
+
+    @classmethod
+    def start_timecode(self, cuelist, cue_number=0):
+        # Identify all cues with timecode
+        ## {timing: cue_number}
+        # NOTE: dict used to look for latest cue only
+        timecode_cues = {
+            cue.timing: cue_number
+            for cue_number, cue in enumerate(Show.cuelists[cuelist].cues)
+            if isinstance(cue.timing, (float, int))
+        }
+        # Sort all timecodes
+        timecode_list = [item for item in timecode_cues.items()]
+        timecode_list.sort(key=lambda cue: cue[0])
+        print(timecode_list)
+        # Extract timings and cues
+        timings = [timing for timing, *_ in timecode_list]
+        cues = [cue for _, cue in timecode_list]
+
+        def run_timecode(cuelist, cue_number):
+            current_timing = Show.cuelists[cuelist].cues[cue_number].timing
+            start = time.time() - current_timing
+            # TODO: [TIMECODE] how to handle run_timecode if started on a manual cue
+            start_index = cues.index(cue_number)
+            for i in range(len(timings[start_index:])):
+                while (time.time() - start) < timings[start_index:][i]:
+                    pass
+                self.play_cue(cuelist, cues[start_index:][i])
+
+        run_timecode(cuelist, cue_number)
         return
 
     def update_active(self, cuelist, cue_number):
         self.active_cuelists[cuelist] = cue_number
         return
 
+    @classmethod
     def new_cuelist(self, name, cuelist=False):
         '''
         Create new cuelist if cuelist does not yet exist
@@ -768,27 +809,30 @@ class Cuelist():
         self.cues = []
         return
 
-    @property
     # TODO: [CLEAN] what does this decorator do?
-    def cues(self):
-        return self.cues
+    # @property
+    # def cues(self):
+    #     return self.cues
 
-    def add_cue(self, parameters):
+    def add_cue(self, cue):
         # TODO: [REFACTOR] refactor from record
-        self.cues.append()
+        self.cues.append(cue)
         return
 
     def update_state(self):
-        state = [None] * 256
         # TODO: [EFFECT] store effect into state somehow
-
-        def calculate_state(cue):
-            cue.state = state
-            for channel, value, *_ in [dmx for command in cue.commands.values() for dmx in command]:
-                state[channel] = value
-            return cue
-        self.cues = list(map(calculate_state), self.cues)
+        self.cues = list(map(self.calculate_state), self.cues)
         return
+
+    def calculate_state(cue):
+        state = [None] * 256
+        cue.state = state
+        for channel, value, *_ in [dmx for command in cue.commands.values() for dmx in command]:
+            state[channel] = value
+        return cue
+
+    def js_cuelist(self):
+        return [i.js_cue() for i in self.cues]
 
 
 class Cue():
@@ -804,19 +848,28 @@ class Cue():
 
     '''
 
-    def __init__(self, name=False, desc='', timing='manual'):
+    def __init__(self, name=False, desc='', timing='manual', commands={}, effects={}):
         # TODO
         self.name = name  # TODO: config
         self.desc = desc
-        self.commands = {
-            # f'{instruction} {value}': Programmer.commands_lib[]
-        }
+        self.commands = commands
+        # f'{instruction} {value}': Programmer.commands_lib[]
         self.timing = timing
+        self.effects = effects
         self.state = []
         return
 
     def update_commands(self):
         pass
+
+    def js_cue(self):
+        return {
+            'name': self.name,
+            'desc': self.desc,
+            'commands': self.commands,
+            'timing': self.timing,
+            'state': self.state
+        }
 
 
 # UI
@@ -916,6 +969,7 @@ class CMD():
             print(f'clean_line [+]: {args=}')
         return args
 
+    @classmethod
     def parse(self, line):
         def alias_parser():
             # TODO: START
@@ -944,9 +998,9 @@ class CMD():
         token_list = []
         # eg. [@20, pars, si 100, sc 'red blue', in 2, # name, / description]
         token_builder = []  # temporary array to build the above commands
-        keywords = self.commands_lib.keys() + \
-            self.aliases.keys() + \
-            Palettes.palettes['groups'].keys() + \
+        keywords = list(self.commands_lib.keys()) + \
+            list(self.aliases.keys()) + \
+            list(Palettes.palettes['groups'].keys()) + \
             ['in']
         keyword_starter = ('@', '#', '/')
         for arg in args:
@@ -1011,15 +1065,16 @@ class CMD():
                         fade_time=programmer_builder['fade_time'],
                         curve=programmer_builder['curve']
                     )
+                    # TODO: commands run one after another if in the same line. take out arguments and run them together like in cue mode basically
                     # Update programmer
-                    instruction = ' '.join([selection_builder], [action])
+                    instruction = ' '.join(selection_builder + [action])
                     if instruction in Programmer.programmer['commands']:
                         del Programmer.programmer['commands'][instruction]
                     Programmer.programmer['commands'][instruction] = value
                     # ALT [TODO]: convert this to an update?
                     for fixture in Programmer.select(selection_builder):
                         parameter = other[0]
-                        if value.isnumeric():
+                        if isinstance(value, str) and value.isnumeric():
                             value = int(value)
                         if fixture not in Programmer.programmer:
                             Programmer.programmer[fixture] = {}
@@ -1056,7 +1111,7 @@ def get_palette():
 
 @eel.expose
 def get_cuelists():
-    return Show.cuelists
+    return {name: cuelist.js_cuelist() for name, cuelist in Show.cuelists.items()}
 
 
 @eel.expose
@@ -1082,6 +1137,11 @@ def get_active_cuelists():
 def get_selected_cuelist():
     # TODO: [CLEAN]
     return Show.selected_cuelist
+
+
+@eel.expose
+def read_line(line):
+    CMD.parse(line)
 
 
 @eel.expose
@@ -1117,41 +1177,41 @@ def bye():
         exit()
 
 
+Patching.import_fixture_type('trimmer par')
+Patching.patch_fixtures('trimmer par', 101, 2, 1)
 showcase = Cuelist()
-showcase.new_cue(
+showcase.add_cue(
     Cue(
         name='beat',
         desc='pars flash',
         timing=0.0,
         commands={
-            'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
-            'effects': []
-        }
+            'pars on': [[1, 128, 0, 'linear'], [9, 128, 0, 'linear']],
+        },
+        effects={1: {'form': 'sine', 'size': 100, 'length': 1}}
     )
 )
-showcase.new_cue(
+showcase.add_cue(
     Cue(
         name='beat',
         desc='pars flash',
         timing=1.0,
         commands={
             'pars off': [[1, 0, 0, 'linear'], [9, 0, 0, 'linear']],
-            'effects': []
         }
     )
 )
-showcase.new_cue(
+showcase.add_cue(
     Cue(
         name='beat',
         desc='pars flash',
         timing=2.0,
         commands={
             'pars on': [[1, 255, 0, 'linear'], [9, 255, 0, 'linear']],
-            'effects': []
         }
     )
 )
-showcase.new_cue(
+showcase.add_cue(
     Cue(
         name='beat',
         desc='pars flash',
@@ -1169,120 +1229,6 @@ _______OLDCODE___________ = None
 
 
 # palette groups for multiple parameters using function arguments (colour=), stored in
-
-
-def set_colour(selection, value, fade_time=0, curve='linear', verbose=False, cuelist_mode=False):
-    if isinstance(value, str) and value not in p['colours'].keys():
-        print(f'[ERROR]: Colour "{value}" does not exist.')
-        return
-    # TODO: validate tuple
-    selection = select(selection)
-    fade_arguments = []
-
-    def write_colour_to_DMX(fixture, colour_value):
-        # ARG: colour_value = [red, green, blue]
-        # colour_value = [255, 0, 0], default = red, green, blue
-        dmxChanges = []
-        # red, green, blue = colour_value
-        # colour_value = {}
-        address, fixture_type = patching[fixture]
-        # colourType = fixture_types[fixture_type]['colour_mapping']
-        colourType = 'rgb'
-        colourDict = {
-            'r': 'red',
-            'g': 'green',
-            'b': 'blue',
-            'a': 'amber',
-            'w': 'white',
-            'u': 'uv'
-        }
-
-        def translate_colour(colour_value, colourType):
-            # colour_value: given in HSI
-            # colourType: RGB, RGBA, RGBAW, RGBW, ?UV
-            return colour_value
-            if colourType == 'rgb':
-                return colour_value
-            if colourType == 'rgbw':
-                # converts HSI to RGBW
-                hueDeg, sat, intensity = colour_value
-                hueDeg = hueDeg % 360
-                hueRad = hueDeg * math.pi / 180
-                sat = max(0, min(sat, 1))
-                intensity = max(0, min(intensity, 1))
-                if hueDeg < 120:
-                    cos_h = math.cos(hueRad)
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    red = sat * 255 * intensity / 3 * \
-                        (1 + cos_h/cos_1047_h)  # TODO: check fraction
-                    green = sat * 255 * intensity / \
-                        3 * (1 + (1 - cos_h/cos_1047_h))
-                    blue = 0
-                    white = 255 * (1 - sat) * intensity
-                elif hueDeg < 240:
-                    hueRad = hueRad - math.pi * 2 / 3
-                    cos_h = math.cos(hueRad)
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    green = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
-                    blue = sat * 255 * intensity / 3 * \
-                        (1 + (1 - cos_h/cos_1047_h))
-                    red = 0
-                    white = 255 * (1 - sat) * intensity
-                else:
-                    hueRad = hueRad - math.pi * 4 / 3
-                    cos_h = math.cos(hueRad)
-                    cos_1047_h = math.cos(math.pi / 3 - hueRad)
-                    blue = sat * 255 * intensity / 3 * (1 + cos_h/cos_1047_h)
-                    red = sat * 255 * intensity / 3 * \
-                        (1 + (1 - cos_h/cos_1047_h))
-                    green = 0
-                    white = 255 * (1 - sat) * intensity
-            return [round(i) for i in (red, green, blue, white)]
-        return [(findChannel((address, fixture_type), colourDict[colour]),
-                # TODO
-                 end := translate_colour(colour_value, colourType)[index],
-                 fade_time,
-                 'sine') for index, colour in enumerate(colourType)]
-        rChannel = findChannel(fixture, 'red')
-        gChannel = findChannel(fixture, 'green')
-        bChannel = findChannel(fixture, 'blue')
-        dmxChanges.extend([rChannel, r, gChannel, g, bChannel, b])
-        if len(a) > 0:
-            aChannel = findChannel(fixture, 'amber')
-            dmxChanges.extend([aChannel, a[0]])
-        dmxChanges = [(rChannel, r, fade_time, 'sine')]
-        return dmxChanges  # return [(address, end, length, curve) * 3]
-    if isinstance(value, str):
-        palettes = p['colours']
-        value = value.lower()
-        for fixture in selection:
-            try:
-                colourValue = palettes[value]['fixtures'][fixture]
-                break
-            except KeyError:
-                try:
-                    colourValue = palettes[value]['fixture types'][patching[fixture][1]]
-                    break
-                except KeyError:
-                    colourValue = palettes[value]['default']
-
-            # finally: # TODO: fix
-            #     colourValue = palettes[value]['default']
-            fade_arguments.extend(write_colour_to_DMX(fixture, colourValue))
-    elif isinstance(value, tuple):
-        colourValue = value
-        for fixture in selection:
-            fade_arguments.append(write_colour_to_DMX(fixture, colourValue))
-    if verbose:
-        print(f'[CHECK]: {fade_arguments}')
-    if cuelist_mode:
-        return fade_arguments
-    else:
-        print(fade_arguments)
-        fade(*fade_arguments)
-    return fade_arguments
-
-
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
 
 
@@ -1340,7 +1286,7 @@ def parse_assignment(string):
 # how to manage state
 
 
-def in_fade():
-    if channel in effectsLib:
-        modifier = effect(channel, size, )
-        return original_value + modifier
+# def in_fade():
+#     if channel in effectsLib:
+#         modifier = effect(channel, size, )
+#         return original_value + modifier

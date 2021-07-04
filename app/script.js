@@ -210,9 +210,9 @@ async function fill_patching() {
     for (let fixture of Object.values(patching)) {
         console.log('fixture', fixture);
         let universe = '01' // TODO
-        let h = document.querySelector('#universe-' + universe + ' > div:nth-child(' + fixture[0] + ')')
+        let h = document.querySelector('#universe-' + universe + ' > div:nth-child(' + fixture[1] + ')')
         h.classList.add('channelUsedStart')
-        for (div of document.querySelectorAll(`#universe-${universe} > div:nth-child(n+${fixture[0] + 1}):nth-child(-n+${fixture[0] + fixture[2] - 1})`)) {
+        for (div of document.querySelectorAll(`#universe-${universe} > div:nth-child(n+${fixture[1] + 1}):nth-child(-n+${fixture[1] + fixture[2] - 1})`)) {
             console.log(div)
             div.classList.add('channelUsed')
         }
@@ -293,7 +293,7 @@ async function select_cuelist() {
 
     let None = ''
     let cue_lists
-    console.log(cueLists)
+    console.log(patching)
     // lists = cueLists.cuelists
     lists = cueLists
     let cuelist = e('#cuelist')
@@ -350,6 +350,7 @@ async function select_cuelist() {
             console.log(cueGroup)
             timeline.appendChild(cueGroup)
             for (command in cue.commands) {
+                console.log(cue.commands[command])
                 for (instructionGroup of cue.commands[command]) {
                     let dmxChannel = instructionGroup[0]
                     let dmxValue = instructionGroup[1]
@@ -454,7 +455,7 @@ document.body.onkeydown = function (evt) {
 
 // ON START
 async function load_programmer () {
-    let program = await eel.get_programmed()()
+    let program = await eel.get_programmer()()
     refresh_programmer(program)
     return
 }
