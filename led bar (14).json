@@ -1,8 +1,8 @@
 {
-    "name": "led bar (14)",
-    "channels": 75,
+    "name": "led bar",
+    "channels": 14,
     "notes": "",
-    "colour_mapping": "rgbw",
+    "cells": 3,
     "mapping": {
         "intensity": {
             "channel": 1,
@@ -11,68 +11,143 @@
                 "intensity": ["range", 0, 255]
             }
         },
-        "sun 1 intensity": {
-            "channel": 2,
-            "conditional": false,
-            "values": {
-                "strobe rate": ["range", 0, 255]
+        "cell_1": {
+            "name": "main",
+            "default#": 0.1,
+            "mapping": {
+                "intensity": {
+                    "channel": 2,
+                    "conditional": false,
+                    "values": {
+                        "intensity": ["range", 0, 255]
+                    }
+                },
+                "strobe": {
+                    "channel": 3,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "closed": ["block", 0, 10],
+                        "rate": ["range", 11, 255]
+                    }
+                },
+                "effect": {
+                    "channel": 4,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "effect1": ["block", 0, 4],
+                        "effect2": ["block", 5, 9],
+                        "effect3": ["block", 10, 14],
+                        "effect4": ["block", 15, 19],
+                        "effect5": ["block", 20, 24],
+                        "effect6": ["block", 25, 29],
+                        "effect7": ["block", 30, 34],
+                        "effect8": ["block", 35, 39],
+                        "effect9": ["block", 40, 49]
+                    }
+                },
+                "effect speed": {
+                    "channel": 5,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "speed": ["range", 0, 255]
+                    }
+                }
             }
         },
-        "sun 2 intensity": {
-            "channel": 2,
-            "conditional": false,
-            "values": {
-                "strobe rate": ["range", 0, 255]
+        "cell_2": {
+            "name": "white",
+            "default#": 0.2,
+            "mapping": {
+                "intensity": {
+                    "channel": 6,
+                    "conditional": false,
+                    "values": {
+                        "intensity": ["range", 0, 255]
+                    }
+                },
+                "strobe": {
+                    "channel": 7,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "closed": ["block", 0, 10],
+                        "rate": ["range", 11, 255]
+                    }
+                },
+                "effect": {
+                    "channel": 8,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "effect1": ["block", 0, 4],
+                        "effect2": ["block", 5, 9],
+                        "effect3": ["block", 10, 14],
+                        "effect4": ["block", 15, 19],
+                        "effect5": ["block", 20, 24],
+                        "effect6": ["block", 25, 29],
+                        "effect7": ["block", 30, 34],
+                        "effect8": ["block", 35, 39],
+                        "effect9": ["block", 40, 49]
+                    }
+                },
+                "effect speed": {
+                    "channel": 9,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "speed": ["range", 0, 255]
+                    }
+                }
             }
         },
-        "mode": {
-            "channel": 3,
-            "conditional": false,
-            "values": {
-                "dmx": ["block", 0, 50],
-                "colour pulse": ["block", 51, 100],
-                "gradual colour change": ["block", 101, 150],
-                "slow colour change": ["block", 151, 200],
-                "sound control": ["block", 201, 255]
-            }
-        },
-        "auto speed": {
-            "channel": 4,
-            "conditional": "mode",
-            "conditions": {
-                "dmx": {"values": {"-": ["block", 0, 255]}},
-                "colour pulse": {"values": {"speed": ["range", 0, 255]}},
-                "gradual colour change": {"values": {"speed": ["range", 0, 255]}},
-                "slow colour change": {"values": {"speed": ["range", 0, 255]}},
-                "sound control": {"values": {"speed": ["range", 0, 255]}}
-            }
-        },
-        "red": {
-            "channel": 5,
-            "conditional": false,
-            "values": {
-                "intensity": ["range", 0, 255]
-            }
-        },
-        "green": {
-            "channel": 6,
-            "conditional": false,
-            "values": {
-                "intensity": ["range", 0, 255]
-            }
-        },
-        "blue": {
-            "channel": 7,
-            "conditional": false,
-            "values": {
-                "intensity": ["range", 0, 255]
-            }
-        },
-        "white": {
-            "channel": 8,
-            "conditional": false,
-            "values": {
-                "intensity": ["range", 0, 255]
+        "cell_3": {
+            "name": "rgb",
+            "colour_mapping": "rgb",
+            "default#": 0.3,
+            "mapping": {
+                "intensity": {
+                    "channel": 10,
+                    "conditional": false,
+                    "values": {
+                        "intensity": ["range", 0, 255]
+                    }
+                },
+                "strobe": {
+                    "channel": 11,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "closed": ["block", 0, 10],
+                        "rate": ["range", 11, 255]
+                    }
+                },
+                "effect": {
+                    "channel": 12,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "effect1": ["block", 0, 4],
+                        "effect2": ["block", 5, 9],
+                        "effect3": ["block", 10, 14],
+                        "effect4": ["block", 15, 19],
+                        "effect5": ["block", 20, 24],
+                        "effect6": ["block", 25, 29],
+                        "effect7": ["block", 30, 34],
+                        "effect8": ["block", 35, 39],
+                        "effect9": ["block", 40, 49]
+                    }
+                },
+                "effect speed": {
+                    "channel": 13,
+                    "conditional": false,
+                    "default": 0,
+                    "values": {
+                        "speed": ["range", 0, 255]
+                    }
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-// ELEMENTS
+// META
 function e(css) {
     elements = document.querySelectorAll(css)
     if (elements.length > 1) {
@@ -7,25 +7,8 @@ function e(css) {
         return elements[0]
     }
 }
-let inputBtn = document.getElementById('submit')
-let inputField = document.getElementById('input')
 
-// VARIABLES::STATE
-
-let selected_cues = {}
-let selected_fixtures = {}
-let selected_cuelist = ''
-let timecode_state = false
-
-// TESTING
-
-eel.expose(javascript_log)
-function javascript_log(args) {
-    console.log(args)
-    return args
-}
-
-// META
+// META::GUI
 
 function remove_all_children(node) {
     while (node.firstChild) {
@@ -33,22 +16,6 @@ function remove_all_children(node) {
     }
     return
 }
-
-// CONSOLE::HANDLE INPUTS
-
-function handleSubmit() {
-    console.log(input.value)
-    eel.read_line(input.value)
-    let text = document.createTextNode(input.value)
-    logDiv.appendChild(text)
-    input.value = ''
-    return
-}
-
-e('#submit').onclick = handleSubmit
-e('#input').onkeydown = function (evt) { if (evt.keyCode == 13) { handleSubmit() } }
-
-// BUTTON MANAGEMENT
 
 function toggle(node, type) {
     switch (type) {
@@ -66,6 +33,35 @@ function toggle(node, type) {
     }
     return
 }
+
+// VARIABLES::STATE
+
+let selected_cues = {}
+let selected_fixtures = {}
+let selected_cuelist = ''
+let timecode_state = false
+
+
+
+
+// CONSOLE::HANDLERS
+
+e('#submit').onclick = handle_submit
+e('#input').onkeydown = function (evt) { if (evt.keyCode == 13) { handle_submit() } }
+
+function handle_submit() {
+    console.log(input.value)
+    eel.read_line(input.value)
+    let text = document.createTextNode(input.value)
+    logDiv.appendChild(text)
+    input.value = ''
+    return
+}
+
+
+// BUTTON MANAGEMENT
+
+
 
 
 e('#patching-toggle').onclick = () => toggle(e('#patching'), 'visibility')
@@ -223,9 +219,9 @@ fill_patching()
 
 // CUELIST::RECORDING
 
-function record_cue(cuelist) {
+function  record_cue(cuelist) {
     cuelist = cuelist || 
-    eel.record_programmer_to_cuelist(program)
+    eel.record_programmer_to_cuelist()
     refresh_timeline()
 }
 

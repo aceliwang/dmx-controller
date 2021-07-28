@@ -42,14 +42,23 @@ VERBOSE = args.verbose
 class default():
     on_intensity = 100
     off_intensity = 0
-    fade_time = 2
+    programmer_fade_time = 2
+    cue_fade_time = 2
     cue_name = 'Cue'
     # TODO: [CONFIG]
     effect_size = 100
-    effect_length = 100
+    effect_length = 1
     effect_hoz = 0
     effect_ver = 0
     effect_absrel = 'rel'
+
+    @staticmethod
+    def is_number(arg):
+        try:
+            float(arg)
+            return True
+        except ValueError:
+            return False
 
 # HARDWARE
 
@@ -137,7 +146,6 @@ class DMXSender():
         # Supplied effects
         effected_values = {channel: Programmer.effect(self.raw_state.get(channel, 0), time=self.active_effects[channel][0], start=start, parameters=self.active_effects[channel][1])
                                for channel in self.active_effects}
-        print(effected_values)
         self.update_buffer(self, effected_values)
         return
 
@@ -161,13 +169,16 @@ class DMXSender():
         start = time.perf_counter()
         bounds = {channel: (start, end) for (
             channel, start, end, *_) in argument_q}  # subject to LTP
+        print(f'{fade_arguments=}')
         max_duration = max(
             [duration for (_, _, duration, _c) in fade_arguments])
         # Add effects to active effects
         effects = {channel: (start, parameters)
                    for channel, parameters in effects.items()}
         self.active_effects.update(effects)
-
+        for channel, (_, parameters) in effects.items():
+            if parameters['form'] == 'none':
+                del self.active_effects[channel]
         while True:
             # TODO: [ALT] investigate if generating lists of commands with popping the DMX buffer is more fast
             delta_time = time.perf_counter() - start
@@ -179,6 +190,13 @@ class DMXSender():
                                   if (bounds[channel][1] - bounds[channel][0]) * (value - bounds[channel][1]) < 0}
             if len(remaining_channels) == 0 and delta_time > max_duration:
                 break
+        return
+    
+    @classmethod
+    def fade_instant(self, *fade_arguments):
+        new_values = {channel: value for channel, value, *_ in fade_arguments}
+        self.update_raw(self, new_values)
+        self.update_buffer(self, new_values)
         return
 
 
@@ -210,8 +228,8 @@ class Patching():
     def map_patching(self):
         channel_assignment = [-1] + [0] * 512
         # ALT: change to a reduce function
-        for _, (address, fixture_type) in self.patching.items():
-            for channel in range(address, address + self.fixture_types[fixture_type]['channel']):
+        for _, (fixture_type, address) in self.patching.items():
+            for channel in range(address, address + self.fixture_types[fixture_type]['channels']):
                 channel_assignment[channel] += 1
         return channel_assignment
 
@@ -231,18 +249,38 @@ class Patching():
             print(
                 f'patch_fixtures [ERROR] Fixture type {fixture_type} does not exist')
             return
-        channel_qty = self.fixture_types[fixture_type]['channels']
+        fixture_info = self.fixture_types[fixture_type] 
+        channel_qty = fixture_info['channels']
         start = address
         end = address + quantity * channel_qty
         if sum(self.map_patching()[start:end]) > 0:
             print(
                 f'patch_fixtures [ERROR] Address targets are already occupied.')
+            return
         else:
-            self.patching.update({
+            patching_update = {
                 fixture_no + i: [fixture_type, address + i * (channel_qty + gap)]
                 for i in range(quantity)
-            })
-        return
+            }
+            if (cell_qty := fixture_info.get('cells', 0)) > 0:
+                for i in range(quantity):
+                    for cell_no in range(cell_qty):
+                        # cell_no = cell_no + 1 # offset from 0
+                        cell_id = f'cell_{cell_no + 1}'
+                        cell = fixture_info['mapping'].get(cell_id, {})
+                        print(cell_id, cell.get('default#', 0))
+                        patching_update.update(
+                            {
+                                fixture_no + i + cell.get('default#', 0): [fixture_type, address + i * (channel_qty + gap), cell_id]
+                            }
+                        )
+
+            self.patching.update(patching_update)
+            ## [TODO]: Set defaults
+            # for item in patching_update.items():
+            #     DMXSender.fade([channel, end, 0, 'linear'])
+            print(f'patching_fixtures [+]: {fixture_type} patched at {start}')
+        return self.patching
 
     def check_patching(self):
         '''
@@ -286,6 +324,7 @@ class Palettes():
         'colours': {},
         'positions': {},
         'beams': {},
+        'effects': {},
         'custom': {},
     }
 
@@ -312,6 +351,7 @@ class Programmer():
 
     FADE_TIME = 0  # TODO: [CONFIG] map to config
     CUELIST_MODE = False
+    FADE_MODE = False
     programmer = {
         'commands': OrderedDict(),  # TODO: [CLEAN] why OrderedDict?
         # 101: {
@@ -357,11 +397,12 @@ class Programmer():
                         int(upper_bound) + 1)]
                 # Handle fixture number
                 else:
-                    return [int(arg)]
-            elif isinstance(arg, int):
+                    return [float(arg)]
+            elif isinstance(arg, (int, float)):
                 return [arg]
         return [fixture for i in selection for fixture in translate_or_expand(i)]
 
+    @staticmethod
     def clamp(value):
         return max(min(255, round(value)), 0)
 
@@ -369,8 +410,7 @@ class Programmer():
         if cuelist in Show.cuelists:
             self.CUELIST_MODE = cuelist
             print(f'active_cuelist_mode [+]: successfully activated')
-            if GUI.state:
-                eel.refresh_selected_cuelist(cuelist)
+            if GUI.state: eel.refresh_selected_cuelist(cuelist)
         else:
             # TODO: make new cuelist
             new_cuelist = Cuelist(name=cuelist)
@@ -410,6 +450,7 @@ class Programmer():
         ]
         if self.CUELIST_MODE:
             return fade_arguments
+        if VERBOSE: print(f'set_intensity [+]: {fade_arguments=}')
         DMXSender.fade(*fade_arguments)
         return
 
@@ -497,8 +538,7 @@ class Programmer():
         elif isinstance(value, tuple):
             colour = value
 
-        # Check value
-        #
+        # Check value TODO
         # Generate fade arguments
         def colour_to_fade_argument(colour, colour_type, fixture):
             return [
@@ -539,6 +579,14 @@ class Programmer():
             value (int, str): position value as Pan/Tilt or palette name
         '''
         # TODO: [POSITION]
+        # Handle value
+        if isinstance(value, str):
+            if value in (pal := Palettes.palettes['positions']):
+                value = pal[value]
+            
+        # parse position name
+        # transform according to coarse/fine
+
         return
 
     @classmethod
@@ -569,7 +617,7 @@ class Programmer():
         '''
         form = parameters.get('form')
         size = parameters.get('size', default.effect_size)
-        length = parameters.get('length', default.effect_length)
+        length = math.pi * parameters.get('length', default.effect_length)
         hoz = parameters.get('hoz', default.effect_hoz)
         ver = parameters.get('ver', default.effect_ver)
         absrel = parameters.get('absrel', default.effect_absrel)
@@ -579,9 +627,6 @@ class Programmer():
             'tangent': lambda x: size * math.tan(length * x + hoz) + ver,
             'none': lambda x: x
         }
-        # TODO: Delete below for cleaning
-        # for i in range(100, 200):            
-        #     print(Programmer.effect(125, i/100, {'form': 'sine'}))
         return self.clamp(value + effects_lib[form](time - start))
 
     def find_channel(self, fixture, parameter):
@@ -594,58 +639,79 @@ class Programmer():
         '''
         # Handle fixture
         if isinstance(fixture, (tuple, list)):
-            fixture_type, address = fixture
+            fixture_type, address, *cell = fixture
         else:
-            fixture_type, address = Patching.patching[int(fixture)]
+            fixture_type, address, *cell = Patching.patching[float(fixture)]
+        if len(cell) > 0: cell = cell[0] # TODO: clean up handling cells
+        else: cell = 0
         # Find channel
-        channel = address + \
-            Patching.fixture_types[fixture_type]['mapping'][parameter]['channel'] - 1
+        if cell:
+            channel = address + \
+                Patching.fixture_types[fixture_type]['mapping'][cell]['mapping'][parameter]['channel'] - 1
+        else:
+            channel = address + \
+                Patching.fixture_types[fixture_type]['mapping'][parameter]['channel'] - 1
         return channel
+
+    def find_parameter_options(self, fixture_type, parameter):
+        return
 
     @classmethod
     def start_mouse_tracker(self, primary_position=(100, 100), x_channel=False, y_channel=False):
         # TODO: [REFACTOR]
         # Move mouse to primary position ie. position to be stuck in
+        # Programmer.start_mouse_tracker(x_channel=1, y_channel=2)
+        if x_channel is False and y_channel is False: return
         x0, y0 = primary_position
         mouse.move(x0, y0)
         # TODO: CLEAN
-        x_value = DMXSender.raw_state.get(x_channel, 0)
-        y_value = DMXSender.raw_state.get(y_channel, 0)
 
-        def handle_mouse(evt):
+        def handle_mouse(evt, x0=x0, y0=y0):
             # Cancel tracking if click
+            x_value = DMXSender.raw_state.get(x_channel, 0)
+            y_value = DMXSender.raw_state.get(y_channel, 0)
             if isinstance(evt, mouse._mouse_event.ButtonEvent):
                 mouse.unhook(handle_mouse)
             new_x, new_y = mouse.get_position()
+            direction = 'none'
+            shortcut_return = False
             if not keyboard.is_pressed(42):  # if not shift key
                 if new_x > x0:
-                    x_value += 3
+                    x_value = self.clamp(x_value + 5)
                     direction = 'right'
                 elif new_x < x0:
-                    x_value -= 3
+                    x_value = self.clamp(x_value - 5)
                     direction = 'left'
+                else:
+                    shortcut_return = True
             if not keyboard.is_pressed(29):  # if not ctrl key
                 if new_y > y0:
-                    y_value -= 3
+                    y_value = self.clamp(y_value - 5)
                     direction = 'down'
                 elif new_y < y0:
-                    y_value += 3
+                    y_value = self.clamp(y_value + 5)
                     direction = 'up'
+                elif shortcut_return:
+                    return
             if VERBOSE:
                 print(
-                    f'handle_mouse [+]: mouse moved {direction} {new_x=} {x_value=}')
+                    f'handle_mouse [+]: mouse moved {direction} {new_x=} {x_value=} {new_y=} {y_value=}')
             mouse.move(x0, y0)
             fade_arguments = []
+            print(f'{x_channel=}, {y_channel=}, {x_value=}, {y_value=}')
             if x_channel is not False:
                 fade_arguments.append([x_channel, x_value, 0, 'linear'])
             if y_channel is not False:
                 fade_arguments.append([y_channel, y_value, 0, 'linear'])
-            DMXSender.fade(*fade_arguments)
-            eel.update_node(node, (x_value, y_value))
+            DMXSender.fade_instant(*fade_arguments)
+            # DMXSender.fade(*fade_arguments)
+            # mouse.unhook(handle_mouse)
+            # eel.update_node(node, (x_value, y_value))
             return x_value, y_value
         mouse.hook(handle_mouse)
         return
 
+    @classmethod
     def record_programmer(self, cuelist=None):
         if cuelist is None:
             cuelist = Show.selected_cuelist
@@ -814,10 +880,21 @@ class Cuelist():
     # def cues(self):
     #     return self.cues
 
-    def add_cue(self, cue):
+    def add_cue(self, cue, position=None):
         # TODO: [REFACTOR] refactor from record
-        self.cues.append(cue)
-        return
+        if position is None: 
+            self.cues.append(cue)
+        else:
+            self.cues.insert(position, cue)
+        print(f'[+] add_cue: cue added to cue list')
+        return self.cues
+
+    def delete_cue(self, cue_position):
+        self.cues = self.cues[:cue_position] + self.cues[cue_position + 1:]
+        return self.cues
+
+    def rearrange_cue(self, old_position, new_position):
+        return self.cues
 
     def update_state(self):
         # TODO: [EFFECT] store effect into state somehow
@@ -860,6 +937,9 @@ class Cue():
         return
 
     def update_commands(self):
+        pass
+
+    def edit_commands(self):
         pass
 
     def js_cue(self):
@@ -990,6 +1070,7 @@ class CMD():
             names = args[:index]
             values = args[index + 1:]
             # TODO: parse the assignment
+            parse_assignment(names, values)
             if 'rgb' in values or 'hsl' in values or 'pos' in values:
                 parse_assignment(values)
 
@@ -1015,7 +1096,7 @@ class CMD():
         programmer_builder = {
             'commands': [],
             'curve': 'linear',
-            'fade_time': default.fade_time
+            'fade_time': default.programmer_fade_time if Programmer.FADE_MODE else 0
         }  # temp programmer before updating
         selection_builder = []
         command_list = []
@@ -1026,7 +1107,7 @@ class CMD():
                 programmer_builder['name'] = ' '.join(token[1:])
             elif start == '/':  # DESCRIPTION
                 programmer_builder['description'] = ' '.join(token[1:])
-            elif start.isnumeric():  # FIXTURE NUMBER
+            elif default.is_number(start):  # FIXTURE NUMBER
                 selection_builder.append(start)
             elif start in Palettes.palettes['groups']:  # GROUP NAME
                 selection_builder.append(start)
@@ -1037,12 +1118,13 @@ class CMD():
             else:
                 command_list.append(token)
         # If no commands
-        if len(command_list) == 0:
+        if len(command_list) == 0 and GUI.state:
             # TODO: Do I need to update programmer selection?
             eel.refresh_selection(Programmer.select(selection_builder))
         # Run commands
         # If cuelist_mode, save commands to cuelist and don't run
         # If not cuelist_mode, save commands to programmer and run
+        if VERBOSE: print(f'parse: {command_list=}')
         for action, *values in command_list:
             command_type, command_function, *other = self.commands_lib[action]
             value = ' '.join(values)
@@ -1090,15 +1172,13 @@ class CMD():
             eel.refresh_programmer(Programmer.js_programmer())
         return
 
-    def parse_file(file):
+    def parse_file(self, file):
         # TODO: [REMAKE]
+        with open(file) as f:
+            while line := f.readline():
+                self.parse(line)
         return
 
-
-if args.connect:
-    DMXSender.connect()
-if args.gui:
-    GUI.start()
 Palettes.load('groups', 'colours', 'positions')  # TODO: change to config
 
 # EXPOSED FUNCTIONS
@@ -1149,6 +1229,10 @@ def play_cue(cuelist, cue_number=False, source='back'):
     Show.play_cue(cuelist, cue_number, source)
     return
 
+@eel.expose
+def record_programmer_to_cuelist(programmer):
+    Programmer.record_programmer(programmer)
+    return
 
 @eel.expose
 def start_timecode(cuelist, cue_number=0):
@@ -1163,10 +1247,31 @@ def start_mouse_tracker(primary_position, x_channel, y_channel):
 
 # DEBUG
 
+def et(value, parameters={'form': 'sine', 'length': math.pi}):
+    '''
+    Outputs values of effects for 5 seconds
+    '''
+    Hz = 40
+    demo = [Programmer.effect(value, time=i / Hz, start=0, parameters=parameters) for i in range(5 * Hz)]
+    for i in enumerate(demo): print(i)
+    return demo
+
 
 def rl(line):
     CMD.parse(line)
     return
+
+
+def d(values):
+    DMXSender.client.write(f'DMX {values}')
+    return
+
+# for i in range(255):
+#     d(f'2 50 15 {i}')
+#     time.sleep(0.01)
+
+# for i in range(255):
+#     d(f'2 {i}')
 
 
 def bye():
@@ -1178,7 +1283,9 @@ def bye():
 
 
 Patching.import_fixture_type('trimmer par')
+Patching.import_fixture_type('led bar (14)')
 Patching.patch_fixtures('trimmer par', 101, 2, 1)
+Patching.patch_fixtures('led bar (14)', 201, 1, 200)
 showcase = Cuelist()
 showcase.add_cue(
     Cue(
@@ -1223,8 +1330,19 @@ showcase.add_cue(
 )
 Show.new_cuelist('showcase', cuelist=showcase)
 
+if __name__ == '__main__':
+    if args.connect: DMXSender.connect()
+    if args.gui: GUI.start()
+    import cProfile
+    import pstats
+    with cProfile.Profile() as pr:
+        Programmer.start_mouse_tracker(x_channel=1, y_channel=2)
+        pass
+    stats = pstats.Stats(pr)
+    stats.sort_stats(pstats.SortKey.TIME)
+    stats.print_stats()
 
-_______OLDCODE___________ = None
+__________OLDCODE___________ = None
 # OLD CODE
 
 
@@ -1232,17 +1350,16 @@ _______OLDCODE___________ = None
 # do i want fixture IDs? How is group behaviour meant to work? What happens if I change the fixture numbers later? Should the group refer to the same fixture numbers or the same fixures
 
 
-def parse_assignment(string):
-    if ('rgb' in string):
-        string = string.replace('rgb', '')
-        assignmentType = 'rgb'
-    elif ('hsl' in string):
-        string = string.replace('hsl', '')
-        assignmentType = 'hsl'
-    elif ('pos' in string):
-        string = string.replace('pos', '')
-    elif ('select' in string):
-        string = string.replace('select', '')
+def parse_assignment(type, values):
+    assignment_lib = {
+        'rgb': 'colour',
+        'hsl': 'colour',
+        'pos': 'position',
+        'position': 'position',
+        'select': 'group',
+        'effect': 'effect'
+    }
+    
 
     def reduce_function(a, b):
         if b in (' ', '(', ')'):

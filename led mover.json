@@ -1,0 +1,100 @@
+{
+    "name": "led wash",
+    "channels": 16,
+    "notes": "",
+    "colour_mapping": "rgbwy",
+    "mapping": {
+        "pan": {
+            "channel": [1, 13],
+            "conditional": false,
+            "values": {
+                "pan": ["range", 0, 255]
+            }
+        },
+        "tilt": {
+            "channel": [2, 14],
+            "conditional": false,
+            "values": {
+                "pan": ["range", 0, 255]
+            }
+        },
+        "pan/tilt speed": {
+            "channel": 3,
+            "conditional": false,
+            "values": {
+                "speed": ["range", 0, 255]
+            }
+        },
+        "intensity": {
+            "channel": 4,
+            "conditional": false,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "red": {
+            "channel": 5,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "green": {
+            "channel": 6,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "blue": {
+            "channel": 7,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "white": {
+            "channel": 8,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "intensity": ["range", 0, 255]
+            }
+        },
+        "strobe": {
+            "channel": 9,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "rate": ["range", 0, 255]
+            }
+        },
+        "focus": {
+            "channel": 10,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "focus": ["range", 0, 255]
+            }
+        },
+        "colour effect": {
+            "channel": 11,
+            "conditional": false,
+            "default": 255,
+            "values": {
+                "mode": ["range", 0, 255]
+            }
+        },
+        "colour effect speed": {
+            "channel": 12,
+            "conditional": "colour effect",
+            "default": 255,
+            "values": {
+                "speed": ["range", 0, 255]
+            }
+        }
+    }
+}

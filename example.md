@@ -54,7 +54,7 @@ startcl "showcase"
 @123 macs on pars 25 in 2
 @150 macs sp home si 50 sc green in 5
 @200 repeat every 5000 for 200 until @400
-    @0 macs sp pos1 &&  
+    @0 macs sp pos1
     @50 macs sp pos2
     macs se ticky
     macs sv horizontalAngle rot 50
